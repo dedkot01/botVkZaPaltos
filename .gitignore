@@ -1,0 +1,10 @@
+build/
+.idea/
+/.gradle/
+*.class
+*.gpg
+gradle/
+gradlew
+gradlew.bat
+*.db
+config.properties
