@@ -20,7 +20,6 @@ public class Context extends UserDB {
     public static final int DR_PAGE_MODEL_CAR = 154;
     public static final int DR_PAGE_DESCRIPTION = 155;
 
-    public static final int DR_ROUTE = 200;
     public static final int DR_ROUTE_NEW_DAY = 201;
     public static final int DR_ROUTE_NEW_TIME_UN = 202;
     public static final int DR_ROUTE_NEW_COUNT_UN = 203;

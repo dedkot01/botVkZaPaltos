@@ -17,38 +17,37 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
 
     private static final int LIMIT_ROUTE = 6;
 
-    private static final String START_MESSAGE = "Выберите режим:";
-    private static final String WARNING_MESSAGE = "Не то что ожидалось";
+    private static final String START_MESSAGE = "Главное меню: выберите набор функций";
+    private static final String WARNING_MESSAGE = "Неккоректный ответ, попробуйте ещё раз";
     private static final String ERROR_MESSAGE = "ОШИБКА! Что-то пошло не так т_т\n" +
-            "Пожалуйста, сделайте скриншот переписки с ботом, которые привели к этой ошибке и само это сообщение.\n" +
+            "Пожалуйста, сделайте скриншот переписки с ботом и этого сообщения.\n" +
             "Оповестив администрацию об ошибке, вы поможете её устранить)\nError: ";
-    private static final String OLD_CONTEXT_MESSAGE = "Ваша сессия устарела, возвращение в меню";
+    private static final String OLD_CONTEXT_MESSAGE = "Ваша сессия устарела, возвращение в главное меню";
 
-    private static final String DAY_MESSAGE = "Выберите день:";
-    private static final String PAS_CHOICE_TARGET_MESSAGE = "Куда едем?";
-    private static final String PAS_CHOICE_TIME_UN_MESSAGE = "К какой паре едем?";
-    private static final String PAS_CHOICE_TIME_CT_MESSAGE = "После какой пары едем?";
-    private static final String PAS_DRIVER_NOT_FOUND_MESSAGE = "Нет водителей, возвращение в меню";
+    private static final String DAY_MESSAGE = "День поездки:";
+    private static final String PAS_CHOICE_TARGET_MESSAGE = "Пункт назначения:";
+    private static final String PAS_CHOICE_TIME_UN_MESSAGE = "Время пары:";
+    private static final String PAS_CHOICE_TIME_CT_MESSAGE = "Время после пары:";
+    private static final String PAS_DRIVER_NOT_FOUND_MESSAGE = "Нет водителей, возвращение в главное меню";
     private static final String PAS_DRIVER_SEND_QUERY = "Запрос отправлен";
-    private static final String PAS_DRIVER_RECIVE_QUERY = "Этот пассажир не может с вами связаться";
+    private static final String PAS_DRIVER_RECIVED_QUERY = "Этот пассажир не может с вами связаться";
 
-    private static final String DR_MENU_MESSAGE = "Меню водителя";
+    private static final String DR_MENU_MESSAGE = "Меню водителя: вы можете изменить свою страничку или изменить/создать новый маршрут";
     private static final String DR_PAGE_MESSAGE = "Что хотите изменить?";
     private static final String DR_PAGE_CHANGE_MESSAGE = "Отправьте мне новое значение:";
     private static final String DR_PAGE_CHANGE_SUCCESS_MESSAGE = "Изменения сохранены";
     private static final String DR_PAGE_CLEAR_MESSAGE = "Страница была очищена";
-    private static final String DR_ROUTE_MESSAGE = "Хотите создать маршрут или изменить существующий?";
     private static final String DR_ROUTE_CHANGE_MESSAGE = "Какой маршрут хотите изменить?";
     private static final String DR_ROUTE_CHANGE_NOT_ROUTES_MESSAGE = "У вас нет созданных маршрутов";
     private static final String DR_ROUTE_CHANGE_THIS_ROUTE_NOT_FOUND_MESSAGE = "У вас нет такого маршрута";
     private static final String DR_ROUTE_CHANGE_MENU_MESSAGE = "Что хотите изменить?";
     private static final String DR_ROUTE_CHANGE_SUCCESS_MESSAGE = "Маршрут изменён!\nЧто-нибудь ещё?";
-    private static final String DR_ROUTE_CHANGE_DELETE_MESSAGE = "Маршрут успешно удалён! Возвращение в меню";
-    private static final String DR_ROUTE_NEW_EXCEEDED_MESSAGE = "Лимитр маршрутов превышен!\nУдалите или измените текущие";
+    private static final String DR_ROUTE_CHANGE_DELETE_MESSAGE = "Маршрут успешно удалён! Возвращение в главное меню";
+    private static final String DR_ROUTE_NEW_EXCEEDED_MESSAGE = "Лимитр маршрутов превышен!\nУдалите или измените существующие";
     private static final String DR_ROUTE_NEW_COUNT_UN_MESSAGE = "Выберите кол-во мест в ПГУ";
     private static final String DR_ROUTE_NEW_COUNT_CT_MESSAGE = "Выберите кол-во мест в Зр";
     private static final String DR_ROUTE_NEW_SUCCESS_MESSAGE = "Маршрут создан";
-    private static final String DR_ROUTE_NEW_ERROR_MESSAGE = "Маршрут должен иметь хотя бы одно направление!";
+    private static final String DR_ROUTE_NEW_ERROR_MESSAGE = "Маршрут должен иметь хотя бы один пункт назначения!";
 
     public static Connection connDb;
     public static Statement statmt;
@@ -60,7 +59,6 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
     private Keyboard startKeyboard;
     private Keyboard driverKeyboard;
     private Keyboard driverPageKeyboard;
-    private Keyboard driverRouteKeyboard;
     private Keyboard choiceDriverQueryKeyboard;
     private Keyboard changeQueryDriverKeyboard;
     private Keyboard dayKeyboard;
@@ -83,7 +81,6 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
         buildStartKeyboard();
         buildDriverKeyboard();
         buildDriverPageKeyboard();
-        buildDriverRouteKeyboard();
         buildChoiceDriverQueryKeyboard();
         buildDayKeyboard();
         buildTargetKeyboard();
@@ -323,7 +320,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                         "(SELECT cursor FROM passengerQuery WHERE userId = " + message.getFromId() + ");");
                                 int idDriver = resSet.getInt("userId");
                                 getClient().messages().send(groupActor)
-                                        .message(PAS_DRIVER_RECIVE_QUERY + "\n@id" + message.getFromId())
+                                        .message(PAS_DRIVER_RECIVED_QUERY + "\n@id" + message.getFromId())
                                         .randomId(0).peerId(idDriver).execute();
                                 getClient().messages().send(groupActor)
                                         .message(PAS_DRIVER_SEND_QUERY)
@@ -372,12 +369,46 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                             .keyboard(driverPageKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
                                     break;
-                                case "маршрут":
-                                    setContext(message.getFromId(), Context.DR_ROUTE);
-                                    getClient().messages().send(groupActor)
-                                            .message(DR_ROUTE_MESSAGE)
-                                            .keyboard(driverRouteKeyboard)
-                                            .randomId(0).peerId(message.getFromId()).execute();
+                                case "изменить":
+                                    resSet = statmt.executeQuery("SELECT * FROM route WHERE userId = " + message.getFromId() + ";");
+                                    int i = 0;
+                                    StringBuilder messageText = new StringBuilder();
+                                    while (resSet.next()) {
+                                        i++;
+                                        Route r = new Route(resSet);
+                                        messageText.append(i).append(") ").append(r.toString()).append("\n");
+                                    }
+                                    if(i != 0) {
+                                        setContext(message.getFromId(), Context.DR_ROUTE_CHANGE);
+                                        getClient().messages().send(groupActor)
+                                                .message(messageText.toString() + DR_ROUTE_CHANGE_MESSAGE)
+                                                .keyboard(choiceDriverQueryKeyboard)
+                                                .randomId(0).peerId(message.getFromId()).execute();
+                                    }
+                                    else {
+                                        getClient().messages().send(groupActor)
+                                                .message(DR_ROUTE_CHANGE_NOT_ROUTES_MESSAGE)
+                                                .keyboard(driverKeyboard)
+                                                .randomId(0).peerId(message.getFromId()).execute();
+                                    }
+                                    break;
+                                case "новый":
+                                    resSet = statmt.executeQuery("SELECT count(*) FROM route WHERE userId = " + message.getFromId() + ";");
+                                    resSet.next();
+                                    if (resSet.getInt(1) < LIMIT_ROUTE) {
+                                        updateDayKeyboard();
+                                        setContext(message.getFromId(), Context.DR_ROUTE_NEW_DAY);
+                                        getClient().messages().send(groupActor)
+                                                .message(DAY_MESSAGE)
+                                                .keyboard(dayKeyboard)
+                                                .randomId(0).peerId(message.getFromId()).execute();
+                                    }
+                                    else {
+                                        getClient().messages().send(groupActor)
+                                                .message(DR_ROUTE_NEW_EXCEEDED_MESSAGE)
+                                                .keyboard(driverKeyboard)
+                                                .randomId(0).peerId(message.getFromId()).execute();
+                                    }
                                     break;
                                 default:
                                     getClient().messages().send(groupActor)
@@ -461,57 +492,6 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                     .message(DR_PAGE_CHANGE_SUCCESS_MESSAGE + "\n" + DR_PAGE_MESSAGE)
                                     .keyboard(driverPageKeyboard)
                                     .randomId(0).peerId(message.getFromId()).execute();
-                            break;
-                        // ВОДИТЕЛЬ - МАРШРУТ - ВЫБОР РЕЖИМА
-                        case Context.DR_ROUTE:
-                            switch (message.getText().toLowerCase()) {
-                                case "изменить":
-                                    resSet = statmt.executeQuery("SELECT * FROM route WHERE userId = " + message.getFromId() + ";");
-                                    int i = 0;
-                                    StringBuilder messageText = new StringBuilder();
-                                    while (resSet.next()) {
-                                        i++;
-                                        Route r = new Route(resSet);
-                                        messageText.append(i).append(") ").append(r.toString()).append("\n");
-                                    }
-                                    if(i != 0) {
-                                        setContext(message.getFromId(), Context.DR_ROUTE_CHANGE);
-                                        getClient().messages().send(groupActor)
-                                                .message(messageText.toString() + DR_ROUTE_CHANGE_MESSAGE)
-                                                .keyboard(choiceDriverQueryKeyboard)
-                                                .randomId(0).peerId(message.getFromId()).execute();
-                                    }
-                                    else {
-                                        getClient().messages().send(groupActor)
-                                                .message(DR_ROUTE_CHANGE_NOT_ROUTES_MESSAGE)
-                                                .keyboard(driverRouteKeyboard)
-                                                .randomId(0).peerId(message.getFromId()).execute();
-                                    }
-                                    break;
-                                case "новый":
-                                    resSet = statmt.executeQuery("SELECT count(*) FROM route WHERE userId = " + message.getFromId() + ";");
-                                    resSet.next();
-                                    if (resSet.getInt(1) < LIMIT_ROUTE) {
-                                        updateDayKeyboard();
-                                        setContext(message.getFromId(), Context.DR_ROUTE_NEW_DAY);
-                                        getClient().messages().send(groupActor)
-                                                .message(DAY_MESSAGE)
-                                                .keyboard(dayKeyboard)
-                                                .randomId(0).peerId(message.getFromId()).execute();
-                                    }
-                                    else {
-                                        getClient().messages().send(groupActor)
-                                                .message(DR_ROUTE_NEW_EXCEEDED_MESSAGE)
-                                                .keyboard(driverRouteKeyboard)
-                                                .randomId(0).peerId(message.getFromId()).execute();
-                                    }
-                                    break;
-                                default:
-                                    getClient().messages().send(groupActor)
-                                            .message(WARNING_MESSAGE + "\n" + DR_ROUTE_MESSAGE)
-                                            .keyboard(driverRouteKeyboard)
-                                            .randomId(0).peerId(message.getFromId()).execute();
-                            }
                             break;
                         // ВОДИТЕЛЬ - МАРШРУТ - СОЗДАТЬ - ВЫБОР ДНЯ
                         case Context.DR_ROUTE_NEW_DAY:
@@ -1164,44 +1144,30 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
         List<List<KeyboardButton>> listKey = new LinkedList();
         List<KeyboardButton> row1 = new LinkedList<>();
         List<KeyboardButton> row2 = new LinkedList<>();
+        List<KeyboardButton> row3 = new LinkedList<>();
 
-        KeyboardButton changeKey = new KeyboardButton()
+        KeyboardButton pageKey = new KeyboardButton()
                 .setAction(new KeyboardButtonAction().setType(KeyboardButtonActionType.TEXT)
                         .setLabel("Страница"))
                 .setColor(KeyboardButtonColor.DEFAULT);
-        row1.add(changeKey);
+        row1.add(pageKey);
         listKey.add(row1);
-
-        KeyboardButton newKey = new KeyboardButton()
-                .setAction(new KeyboardButtonAction().setType(KeyboardButtonActionType.TEXT)
-                        .setLabel("Маршрут"))
-                .setColor(KeyboardButtonColor.PRIMARY);
-        row2.add(newKey);
-        listKey.add(row2);
-
-        driverKeyboard = new Keyboard().setOneTime(true).setButtons(listKey);
-    }
-
-    private void buildDriverRouteKeyboard() {
-        List<List<KeyboardButton>> listKey = new LinkedList();
-        List<KeyboardButton> row1 = new LinkedList<>();
-        List<KeyboardButton> row2 = new LinkedList<>();
 
         KeyboardButton changeKey = new KeyboardButton()
                 .setAction(new KeyboardButtonAction().setType(KeyboardButtonActionType.TEXT)
                         .setLabel("Изменить"))
                 .setColor(KeyboardButtonColor.PRIMARY);
-        row1.add(changeKey);
-        listKey.add(row1);
+        row2.add(changeKey);
+        listKey.add(row2);
 
         KeyboardButton newKey = new KeyboardButton()
                 .setAction(new KeyboardButtonAction().setType(KeyboardButtonActionType.TEXT)
                         .setLabel("Новый"))
-                .setColor(KeyboardButtonColor.DEFAULT);
-        row2.add(newKey);
-        listKey.add(row2);
+                .setColor(KeyboardButtonColor.PRIMARY);
+        row3.add(newKey);
+        listKey.add(row3);
 
-        driverRouteKeyboard = new Keyboard().setOneTime(true).setButtons(listKey);
+        driverKeyboard = new Keyboard().setOneTime(true).setButtons(listKey);
     }
 
     private void buildTimeUnDrKeyboard() {
