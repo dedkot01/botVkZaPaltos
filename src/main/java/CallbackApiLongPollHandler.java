@@ -24,24 +24,31 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
             "Оповестив администрацию об ошибке, вы поможете её устранить)\nError: ";
     private static final String OLD_CONTEXT_MESSAGE = "Ваша сессия устарела, возвращение в меню";
 
-    private static final String CHOICE_DAY_MESSAGE = "Выберите день:";
-    private static final String CHOICE_TARGET_MESSAGE = "Куда едем?";
-    private static final String CHOICE_UN_TIME_MESSAGE = "К какой паре едем?";
-    private static final String CHOICE_CT_TIME_MESSAGE = "После какой пары едем?";
-    private static final String DRIVER_NOT_FOUND_MESSAGE = "Нет водителей, возвращение в меню";
+    private static final String DAY_MESSAGE = "Выберите день:";
+    private static final String PAS_CHOICE_TARGET_MESSAGE = "Куда едем?";
+    private static final String PAS_CHOICE_TIME_UN_MESSAGE = "К какой паре едем?";
+    private static final String PAS_CHOICE_TIME_CT_MESSAGE = "После какой пары едем?";
+    private static final String PAS_DRIVER_NOT_FOUND_MESSAGE = "Нет водителей, возвращение в меню";
+    private static final String PAS_DRIVER_SEND_QUERY = "Запрос отправлен";
+    private static final String PAS_DRIVER_RECIVE_QUERY = "Этот пассажир не может с вами связаться";
 
-    private static final String ROUTE_MESSAGE = "Хотите создать маршрут или изменить существующий?";
-    private static final String CHOICE_ROUTE_TO_CHANGE_MESSAGE = "Какой маршрут хотите изменить?";
-    private static final String ROUTE_NOT_CREATE_MESSAGE = "У вас нет созданных маршрутов";
-    private static final String THIS_ROUTE_NOT_FOUND_MESSAGE = "У вас нет такого маршрута";
-    private static final String CHOICE_PARAM_ROUTE_TO_CHANGE_MESSAGE = "Что хотите изменить?";
-    private static final String ROUTE_CHANGE_MESSAGE = "Маршрут изменён!\nЧто-нибудь ещё?";
-    private static final String DELETE_ROUTE_MESSAGE = "Маршрут успешно удалён! Возвращение в меню";
-    private static final String ROUTE_EXCEEDED_MESSAGE = "Лимитр маршрутов превышен!\nУдалите или измените текущие";
-    private static final String CHOICE_COUNT_UN_MESSAGE = "Выберите кол-во мест в ПГУ";
-    private static final String CHOICE_COUNT_CT_MESSAGE = "Выберите кол-во мест в Зр";
-    private static final String SUCCESS_CREATE_ROUTE_MESSAGE = "Маршрут создан";
-    private static final String WARNING_CREATE_ROUTE_MESSAGE = "Маршрут должен иметь хотя бы одно направление!";
+    private static final String DR_MENU_MESSAGE = "Меню водителя";
+    private static final String DR_PAGE_MESSAGE = "Что хотите изменить?";
+    private static final String DR_PAGE_CHANGE_MESSAGE = "Отправьте мне новое значение:";
+    private static final String DR_PAGE_CHANGE_SUCCESS_MESSAGE = "Изменения сохранены";
+    private static final String DR_PAGE_CLEAR_MESSAGE = "Страница была очищена";
+    private static final String DR_ROUTE_MESSAGE = "Хотите создать маршрут или изменить существующий?";
+    private static final String DR_ROUTE_CHANGE_MESSAGE = "Какой маршрут хотите изменить?";
+    private static final String DR_ROUTE_CHANGE_NOT_ROUTES_MESSAGE = "У вас нет созданных маршрутов";
+    private static final String DR_ROUTE_CHANGE_THIS_ROUTE_NOT_FOUND_MESSAGE = "У вас нет такого маршрута";
+    private static final String DR_ROUTE_CHANGE_MENU_MESSAGE = "Что хотите изменить?";
+    private static final String DR_ROUTE_CHANGE_SUCCESS_MESSAGE = "Маршрут изменён!\nЧто-нибудь ещё?";
+    private static final String DR_ROUTE_CHANGE_DELETE_MESSAGE = "Маршрут успешно удалён! Возвращение в меню";
+    private static final String DR_ROUTE_NEW_EXCEEDED_MESSAGE = "Лимитр маршрутов превышен!\nУдалите или измените текущие";
+    private static final String DR_ROUTE_NEW_COUNT_UN_MESSAGE = "Выберите кол-во мест в ПГУ";
+    private static final String DR_ROUTE_NEW_COUNT_CT_MESSAGE = "Выберите кол-во мест в Зр";
+    private static final String DR_ROUTE_NEW_SUCCESS_MESSAGE = "Маршрут создан";
+    private static final String DR_ROUTE_NEW_ERROR_MESSAGE = "Маршрут должен иметь хотя бы одно направление!";
 
     public static Connection connDb;
     public static Statement statmt;
@@ -52,6 +59,8 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
     // Клавиатуры
     private Keyboard startKeyboard;
     private Keyboard driverKeyboard;
+    private Keyboard driverPageKeyboard;
+    private Keyboard driverRouteKeyboard;
     private Keyboard choiceDriverQueryKeyboard;
     private Keyboard changeQueryDriverKeyboard;
     private Keyboard dayKeyboard;
@@ -73,6 +82,8 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
 
         buildStartKeyboard();
         buildDriverKeyboard();
+        buildDriverPageKeyboard();
+        buildDriverRouteKeyboard();
         buildChoiceDriverQueryKeyboard();
         buildDayKeyboard();
         buildTargetKeyboard();
@@ -131,6 +142,20 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                     System.out.println(e.getMessage());
             }
             try {
+                statmt.executeUpdate("CREATE TABLE driverPage (userId INTEGER PRIMARY KEY, " +
+                        "nickname TEXT, " +
+                        "indexCar TEXT, " +
+                        "modelCar TEXT, " +
+                        "description TEXT);");
+                System.out.println("Table driverPage create.");
+            }
+            catch (SQLException e) {
+                if (e.getErrorCode() == 1)
+                    System.out.println("Table driverPage read.");
+                else
+                    System.out.println(e.getMessage());
+            }
+            try {
                 statmt.executeUpdate("CREATE TABLE route (id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                         "userId INTEGER, " +
                         "day TEXT, " +
@@ -146,6 +171,11 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                 else
                     System.out.println(e.getMessage());
             }
+
+            UpdateDbThread updateDbThread = new UpdateDbThread(getClient(), actor);
+            updateDbThread.start();
+
+            System.out.println("Initialization complete! Run.\n");
         }
         catch (Exception e) {
             System.out.println(e.getMessage());
@@ -173,9 +203,9 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                         case Context.START:
                             switch (message.getText().toLowerCase()) {
                                 case "водитель":
-                                    setContext(message.getFromId(), Context.DR_ROUTE);
+                                    setContext(message.getFromId(), Context.DR_MENU);
                                     getClient().messages().send(groupActor)
-                                            .message(ROUTE_MESSAGE)
+                                            .message(DR_MENU_MESSAGE)
                                             .keyboard(driverKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
                                     break;
@@ -183,7 +213,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                     updateDayKeyboard();
                                     setContext(message.getFromId(), Context.PAS_CHOICE_DAY);
                                     getClient().messages().send(groupActor)
-                                            .message(CHOICE_DAY_MESSAGE)
+                                            .message(DAY_MESSAGE)
                                             .keyboard(dayKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
                                     break;
@@ -201,7 +231,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                     statmt.executeUpdate("UPDATE passengerQuery SET day = '" + Day.getDay() + "' WHERE userId = '" + message.getFromId() + "';");
                                     setContext(message.getFromId(), Context.PAS_CHOICE_TARGET);
                                     getClient().messages().send(groupActor)
-                                            .message(CHOICE_TARGET_MESSAGE)
+                                            .message(PAS_CHOICE_TARGET_MESSAGE)
                                             .keyboard(targetKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
                                     break;
@@ -209,7 +239,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                     statmt.executeUpdate("UPDATE passengerQuery SET day = '" + Day.getNextDay() + "' WHERE userId = '" + message.getFromId() + "';");
                                     setContext(message.getFromId(), Context.PAS_CHOICE_TARGET);
                                     getClient().messages().send(groupActor)
-                                            .message(CHOICE_TARGET_MESSAGE)
+                                            .message(PAS_CHOICE_TARGET_MESSAGE)
                                             .keyboard(targetKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
                                     break;
@@ -219,14 +249,14 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                         statmt.executeUpdate("UPDATE passengerQuery SET day = '" + Day.getDay(m.group()) + "' WHERE userId = '" + message.getFromId() + "';");
                                         setContext(message.getFromId(), Context.PAS_CHOICE_TARGET);
                                         getClient().messages().send(groupActor)
-                                                .message(CHOICE_TARGET_MESSAGE)
+                                                .message(PAS_CHOICE_TARGET_MESSAGE)
                                                 .keyboard(targetKeyboard)
                                                 .randomId(0).peerId(message.getFromId()).execute();
                                     }
                                     else {
                                         updateDayKeyboard();
                                         getClient().messages().send(groupActor)
-                                                .message(WARNING_MESSAGE + "\n" + CHOICE_DAY_MESSAGE)
+                                                .message(WARNING_MESSAGE + "\n" + DAY_MESSAGE)
                                                 .keyboard(dayKeyboard)
                                                 .randomId(0).peerId(message.getFromId()).execute();
                                     }
@@ -239,7 +269,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                     statmt.executeUpdate("UPDATE passengerQuery SET target = '" + message.getText() + "' WHERE userId = '" + message.getFromId() + "';");
                                     setContext(message.getFromId(), Context.PAS_CHOICE_TIME);
                                     getClient().messages().send(groupActor)
-                                            .message(CHOICE_UN_TIME_MESSAGE)
+                                            .message(PAS_CHOICE_TIME_UN_MESSAGE)
                                             .keyboard(timeUnPasKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
                                     break;
@@ -247,13 +277,13 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                     statmt.executeUpdate("UPDATE passengerQuery SET target = '" + message.getText() + "' WHERE userId = '" + message.getFromId() + "';");
                                     setContext(message.getFromId(), Context.PAS_CHOICE_TIME);
                                     getClient().messages().send(groupActor)
-                                            .message(CHOICE_CT_TIME_MESSAGE)
+                                            .message(PAS_CHOICE_TIME_CT_MESSAGE)
                                             .keyboard(timeCtPasKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
                                     break;
                                 default:
                                     getClient().messages().send(groupActor)
-                                            .message(WARNING_MESSAGE + "\n" + CHOICE_TARGET_MESSAGE)
+                                            .message(WARNING_MESSAGE + "\n" + PAS_CHOICE_TARGET_MESSAGE)
                                             .keyboard(targetKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
                             }
@@ -274,13 +304,13 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                 resSet.next();
                                 if (resSet.getString("target").equals("ПГУ")) {
                                     getClient().messages().send(groupActor)
-                                            .message(WARNING_MESSAGE + "\n" + CHOICE_UN_TIME_MESSAGE)
+                                            .message(WARNING_MESSAGE + "\n" + PAS_CHOICE_TIME_UN_MESSAGE)
                                             .keyboard(timeUnPasKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
                                 }
                                 else {
                                     getClient().messages().send(groupActor)
-                                            .message(WARNING_MESSAGE + "\n" + CHOICE_CT_TIME_MESSAGE)
+                                            .message(WARNING_MESSAGE + "\n" + PAS_CHOICE_TIME_CT_MESSAGE)
                                             .keyboard(timeCtPasKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
                                 }
@@ -288,33 +318,151 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                             }
                         // ПАССАЖИР - ВЫБОР ВОДИТЕЛЯ
                         case Context.PAS_CHOICE_DRIVER:
-                            resSet = statmt.executeQuery("SELECT * FROM passengerQuery WHERE userId = " + message.getFromId() + ";");
-                            resSet.next();
-                            PassengerQuery pq = new PassengerQuery(resSet);
-                            if (pq.getTarget().equals("ПГУ"))
-                                resSet = statmt.executeQuery("SELECT * FROM route WHERE id > " + pq.getCursor() +
-                                        " AND day = '" + pq.getDay() + "' AND timeUn = '" + pq.getTime() + "';");
-                            else
-                                resSet = statmt.executeQuery("SELECT * FROM route WHERE id > " + pq.getCursor() +
-                                        " AND day = '" + pq.getDay() + "' AND timeCt = '" + pq.getTime() + "';");
-
-                            if (resSet.next()) {
-                                Route r = new Route(resSet);
-                                statmt.executeUpdate("UPDATE passengerQuery SET cursor = " + r.getId() + " WHERE userId = " + message.getFromId() + ";");
+                            if (message.getText().toLowerCase().equals("отправить запрос")) {
+                                resSet = statmt.executeQuery("SELECT userId FROM route WHERE id = " +
+                                        "(SELECT cursor FROM passengerQuery WHERE userId = " + message.getFromId() + ");");
+                                int idDriver = resSet.getInt("userId");
                                 getClient().messages().send(groupActor)
-                                        .message(r.getRouteText())
+                                        .message(PAS_DRIVER_RECIVE_QUERY + "\n@id" + message.getFromId())
+                                        .randomId(0).peerId(idDriver).execute();
+                                getClient().messages().send(groupActor)
+                                        .message(PAS_DRIVER_SEND_QUERY)
                                         .keyboard(choicePasKeyboard)
                                         .randomId(0).peerId(message.getFromId()).execute();
                             }
                             else {
+                                resSet = statmt.executeQuery("SELECT * FROM passengerQuery WHERE userId = " + message.getFromId() + ";");
+                                resSet.next();
+                                PassengerQuery pq = new PassengerQuery(resSet);
+                                if (pq.getTarget().equals("ПГУ"))
+                                    resSet = statmt.executeQuery("SELECT * FROM route WHERE id > " + pq.getCursor() +
+                                            " AND day = '" + pq.getDay() + "' AND timeUn = '" + pq.getTime() + "';");
+                                else
+                                    resSet = statmt.executeQuery("SELECT * FROM route WHERE id > " + pq.getCursor() +
+                                            " AND day = '" + pq.getDay() + "' AND timeCt = '" + pq.getTime() + "';");
+
+                                if (resSet.next()) {
+                                    Route r = new Route(resSet);
+                                    resSet = statmt.executeQuery("SELECT * FROM driverPage WHERE userId = " + r.getUserId() + ";");
+                                    DriverPage dp = new DriverPage(resSet);
+                                    statmt.executeUpdate("UPDATE passengerQuery SET cursor = " + r.getId() + " WHERE userId = " + message.getFromId() + ";");
+                                    getClient().messages().send(groupActor)
+                                            .message(dp.toString() + "\n" + r.getRouteText())
+                                            .keyboard(choicePasKeyboard)
+                                            .randomId(0).peerId(message.getFromId()).execute();
+                                } else {
+                                    setContext(message.getFromId(), Context.START);
+                                    getClient().messages().send(groupActor)
+                                            .message(PAS_DRIVER_NOT_FOUND_MESSAGE)
+                                            .keyboard(startKeyboard)
+                                            .randomId(0).peerId(message.getFromId()).execute();
+                                }
+                            }
+                            break;
+                        // ВОДИТЕЛЬ
+                        case Context.DR_MENU:
+                            switch (message.getText().toLowerCase()) {
+                                case "страница":
+                                    resSet = statmt.executeQuery("SELECT * FROM driverPage WHERE userId = " + message.getFromId() + ";");
+                                    resSet.next();
+                                    DriverPage dp = new DriverPage(resSet);
+                                    setContext(message.getFromId(), Context.DR_PAGE);
+                                    getClient().messages().send(groupActor)
+                                            .message(dp.toString() + "\n\n" + DR_PAGE_MESSAGE)
+                                            .keyboard(driverPageKeyboard)
+                                            .randomId(0).peerId(message.getFromId()).execute();
+                                    break;
+                                case "маршрут":
+                                    setContext(message.getFromId(), Context.DR_ROUTE);
+                                    getClient().messages().send(groupActor)
+                                            .message(DR_ROUTE_MESSAGE)
+                                            .keyboard(driverRouteKeyboard)
+                                            .randomId(0).peerId(message.getFromId()).execute();
+                                    break;
+                                default:
+                                    getClient().messages().send(groupActor)
+                                            .message(WARNING_MESSAGE + "\n" + DR_MENU_MESSAGE)
+                                            .keyboard(driverKeyboard)
+                                            .randomId(0).peerId(message.getFromId()).execute();
+                            }
+                            break;
+                            // ВОДИТЕЛЬ - СТРАНИЧКА
+                        case Context.DR_PAGE:
+                            if (message.getText().toLowerCase().equals("очистить")) {
+                                statmt.executeUpdate("UPDATE driverPage SET nickname = '', indexCar = '', modelCar = '', " +
+                                        "description = '' WHERE userId = " + message.getFromId() + ";");
                                 setContext(message.getFromId(), Context.START);
                                 getClient().messages().send(groupActor)
-                                        .message(DRIVER_NOT_FOUND_MESSAGE)
+                                        .message(DR_PAGE_CLEAR_MESSAGE + "\n" + START_MESSAGE)
                                         .keyboard(startKeyboard)
                                         .randomId(0).peerId(message.getFromId()).execute();
                             }
+                            else {
+                                getClient().messages().send(groupActor)
+                                        .message(DR_PAGE_CHANGE_MESSAGE)
+                                        .randomId(0).peerId(message.getFromId()).execute();
+                                switch (message.getText().toLowerCase()) {
+                                    case "имя":
+                                        setContext(message.getFromId(), Context.DR_PAGE_NICKNAME);
+                                        break;
+                                    case "номер машины":
+                                        setContext(message.getFromId(), Context.DR_PAGE_INDEX_CAR);
+                                        break;
+                                    case "модель машины":
+                                        setContext(message.getFromId(), Context.DR_PAGE_MODEL_CAR);
+                                        break;
+                                    case "описание":
+                                        setContext(message.getFromId(), Context.DR_PAGE_DESCRIPTION);
+                                        break;
+                                    default:
+                                        getClient().messages().send(groupActor)
+                                                .message(WARNING_MESSAGE + "\n" + DR_PAGE_MESSAGE)
+                                                .keyboard(driverPageKeyboard)
+                                                .randomId(0).peerId(message.getFromId()).execute();
+                                }
+                            }
                             break;
-                        // ВОДИТЕЛЬ - ВЫБОР РЕЖИМА
+                        // ВОДИТЕЛЬ - СТРАНИЧКА - ИМЯ
+                        case Context.DR_PAGE_NICKNAME:
+                            statmt.executeUpdate("UPDATE driverPage SET nickname = '" + message.getText() +
+                                    "' WHERE userId = " + message.getFromId() + ";");
+                            setContext(message.getFromId(), Context.DR_PAGE);
+                            getClient().messages().send(groupActor)
+                                    .message(DR_PAGE_CHANGE_SUCCESS_MESSAGE + "\n" + DR_PAGE_MESSAGE)
+                                    .keyboard(driverPageKeyboard)
+                                    .randomId(0).peerId(message.getFromId()).execute();
+                            break;
+                        // ВОДИТЕЛЬ - СТРАНИЧКА - НОМЕР МАШИНЫ
+                        case Context.DR_PAGE_INDEX_CAR:
+                            statmt.executeUpdate("UPDATE driverPage SET indexCar = '" + message.getText() +
+                                    "' WHERE userId = " + message.getFromId() + ";");
+                            setContext(message.getFromId(), Context.DR_PAGE);
+                            getClient().messages().send(groupActor)
+                                    .message(DR_PAGE_CHANGE_SUCCESS_MESSAGE + "\n" + DR_PAGE_MESSAGE)
+                                    .keyboard(driverPageKeyboard)
+                                    .randomId(0).peerId(message.getFromId()).execute();
+                            break;
+                        // ВОДИТЕЛЬ - СТРАНИЧКА - МОДЕЛЬ МАШИНЫ
+                        case Context.DR_PAGE_MODEL_CAR:
+                            statmt.executeUpdate("UPDATE driverPage SET modelCar = '" + message.getText() +
+                                    "' WHERE userId = " + message.getFromId() + ";");
+                            setContext(message.getFromId(), Context.DR_PAGE);
+                            getClient().messages().send(groupActor)
+                                    .message(DR_PAGE_CHANGE_SUCCESS_MESSAGE + "\n" + DR_PAGE_MESSAGE)
+                                    .keyboard(driverPageKeyboard)
+                                    .randomId(0).peerId(message.getFromId()).execute();
+                            break;
+                        // ВОДИТЕЛЬ - СТРАНИЧКА - ОПИСАНИЕ
+                        case Context.DR_PAGE_DESCRIPTION:
+                            statmt.executeUpdate("UPDATE driverPage SET description = '" + message.getText() +
+                                    "' WHERE userId = " + message.getFromId() + ";");
+                            setContext(message.getFromId(), Context.DR_PAGE);
+                            getClient().messages().send(groupActor)
+                                    .message(DR_PAGE_CHANGE_SUCCESS_MESSAGE + "\n" + DR_PAGE_MESSAGE)
+                                    .keyboard(driverPageKeyboard)
+                                    .randomId(0).peerId(message.getFromId()).execute();
+                            break;
+                        // ВОДИТЕЛЬ - МАРШРУТ - ВЫБОР РЕЖИМА
                         case Context.DR_ROUTE:
                             switch (message.getText().toLowerCase()) {
                                 case "изменить":
@@ -329,14 +477,14 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                     if(i != 0) {
                                         setContext(message.getFromId(), Context.DR_ROUTE_CHANGE);
                                         getClient().messages().send(groupActor)
-                                                .message(messageText.toString() + CHOICE_ROUTE_TO_CHANGE_MESSAGE)
+                                                .message(messageText.toString() + DR_ROUTE_CHANGE_MESSAGE)
                                                 .keyboard(choiceDriverQueryKeyboard)
                                                 .randomId(0).peerId(message.getFromId()).execute();
                                     }
                                     else {
                                         getClient().messages().send(groupActor)
-                                                .message(ROUTE_NOT_CREATE_MESSAGE)
-                                                .keyboard(driverKeyboard)
+                                                .message(DR_ROUTE_CHANGE_NOT_ROUTES_MESSAGE)
+                                                .keyboard(driverRouteKeyboard)
                                                 .randomId(0).peerId(message.getFromId()).execute();
                                     }
                                     break;
@@ -347,32 +495,32 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                         updateDayKeyboard();
                                         setContext(message.getFromId(), Context.DR_ROUTE_NEW_DAY);
                                         getClient().messages().send(groupActor)
-                                                .message(CHOICE_DAY_MESSAGE)
+                                                .message(DAY_MESSAGE)
                                                 .keyboard(dayKeyboard)
                                                 .randomId(0).peerId(message.getFromId()).execute();
                                     }
                                     else {
                                         getClient().messages().send(groupActor)
-                                                .message(ROUTE_EXCEEDED_MESSAGE)
-                                                .keyboard(driverKeyboard)
+                                                .message(DR_ROUTE_NEW_EXCEEDED_MESSAGE)
+                                                .keyboard(driverRouteKeyboard)
                                                 .randomId(0).peerId(message.getFromId()).execute();
                                     }
                                     break;
                                 default:
                                     getClient().messages().send(groupActor)
-                                            .message(WARNING_MESSAGE + "\n" + ROUTE_MESSAGE)
-                                            .keyboard(driverKeyboard)
+                                            .message(WARNING_MESSAGE + "\n" + DR_ROUTE_MESSAGE)
+                                            .keyboard(driverRouteKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
                             }
                             break;
-                        // ВОДИТЕЛЬ - СОЗДАТЬ - ВЫБОР ДНЯ
+                        // ВОДИТЕЛЬ - МАРШРУТ - СОЗДАТЬ - ВЫБОР ДНЯ
                         case Context.DR_ROUTE_NEW_DAY:
                             switch (message.getText().toLowerCase()) {
                                 case "сегодня":
                                     statmt.executeUpdate("UPDATE driverQuery SET day = '" + Day.getDay() + "' WHERE userId = '" + message.getFromId() + "';");
                                     setContext(message.getFromId(), Context.DR_ROUTE_NEW_TIME_UN);
                                     getClient().messages().send(groupActor)
-                                            .message(CHOICE_UN_TIME_MESSAGE)
+                                            .message(PAS_CHOICE_TIME_UN_MESSAGE)
                                             .keyboard(timeUnDrKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
                                     break;
@@ -380,7 +528,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                     statmt.executeUpdate("UPDATE driverQuery SET day = '" + Day.getNextDay() + "' WHERE userId = '" + message.getFromId() + "';");
                                     setContext(message.getFromId(), Context.DR_ROUTE_NEW_TIME_UN);
                                     getClient().messages().send(groupActor)
-                                            .message(CHOICE_UN_TIME_MESSAGE)
+                                            .message(PAS_CHOICE_TIME_UN_MESSAGE)
                                             .keyboard(timeUnDrKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
                                     break;
@@ -390,20 +538,20 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                         statmt.executeUpdate("UPDATE driverQuery SET day = '" + Day.getDay(m.group()) + "' WHERE userId = '" + message.getFromId() + "';");
                                         setContext(message.getFromId(), Context.DR_ROUTE_NEW_TIME_UN);
                                         getClient().messages().send(groupActor)
-                                                .message(CHOICE_UN_TIME_MESSAGE)
+                                                .message(PAS_CHOICE_TIME_UN_MESSAGE)
                                                 .keyboard(timeUnDrKeyboard)
                                                 .randomId(0).peerId(message.getFromId()).execute();
                                     }
                                     else {
                                         updateDayKeyboard();
                                         getClient().messages().send(groupActor)
-                                                .message(WARNING_MESSAGE + "\n" + CHOICE_DAY_MESSAGE)
+                                                .message(WARNING_MESSAGE + "\n" + DAY_MESSAGE)
                                                 .keyboard(dayKeyboard)
                                                 .randomId(0).peerId(message.getFromId()).execute();
                                     }
                             }
                             break;
-                        // ВОДИТЕЛЬ - ВЫБОР ПАРЫ В УНИВЕР
+                        // ВОДИТЕЛЬ - МАРШРУТ - ВЫБОР ПАРЫ В УНИВЕР
                         case Context.DR_ROUTE_NEW_TIME_UN:
                             if (message.getText().equals("8:00")
                                     || message.getText().equals("9:50")
@@ -414,7 +562,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                 statmt.executeUpdate("UPDATE driverQuery SET timeUn = '" + message.getText() + "' WHERE userId = '" + message.getFromId() + "';");
                                 setContext(message.getFromId(), Context.DR_ROUTE_NEW_COUNT_UN);
                                 getClient().messages().send(groupActor)
-                                        .message(CHOICE_COUNT_UN_MESSAGE)
+                                        .message(DR_ROUTE_NEW_COUNT_UN_MESSAGE)
                                         .keyboard(countKeyboard)
                                         .randomId(0).peerId(message.getFromId()).execute();
                             }
@@ -423,35 +571,35 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                         "countUn = 0 WHERE userId = '" + message.getFromId() + "';");
                                 setContext(message.getFromId(), Context.DR_ROUTE_NEW_TIME_CT);
                                 getClient().messages().send(groupActor)
-                                        .message(CHOICE_CT_TIME_MESSAGE)
+                                        .message(PAS_CHOICE_TIME_CT_MESSAGE)
                                         .keyboard(timeCtDrKeyboard)
                                         .randomId(0).peerId(message.getFromId()).execute();
                             }
                             else {
                                 getClient().messages().send(groupActor)
-                                        .message(WARNING_MESSAGE + "\n" + CHOICE_UN_TIME_MESSAGE)
+                                        .message(WARNING_MESSAGE + "\n" + PAS_CHOICE_TIME_UN_MESSAGE)
                                         .keyboard(timeCtPasKeyboard)
                                         .randomId(0).peerId(message.getFromId()).execute();
                             }
                             break;
-                        // ВОДИТЕЛЬ - ВЫБОР КОЛ-ВА МЕСТ В УНИВЕР
+                        // ВОДИТЕЛЬ - МАРШРУТ - ВЫБОР КОЛ-ВА МЕСТ В УНИВЕР
                         case Context.DR_ROUTE_NEW_COUNT_UN:
                             if (NumberUtils.isCreatable(message.getText())) {
                                 statmt.executeUpdate("UPDATE driverQuery SET countUn = " + message.getText() + " WHERE userId = '" + message.getFromId() + "';");
                                 setContext(message.getFromId(), Context.DR_ROUTE_NEW_TIME_CT);
                                 getClient().messages().send(groupActor)
-                                        .message(CHOICE_CT_TIME_MESSAGE)
+                                        .message(PAS_CHOICE_TIME_CT_MESSAGE)
                                         .keyboard(timeCtDrKeyboard)
                                         .randomId(0).peerId(message.getFromId()).execute();
                             }
                             else {
                                 getClient().messages().send(groupActor)
-                                        .message(WARNING_MESSAGE + "\n" + CHOICE_COUNT_UN_MESSAGE)
+                                        .message(WARNING_MESSAGE + "\n" + DR_ROUTE_NEW_COUNT_UN_MESSAGE)
                                         .keyboard(countKeyboard)
                                         .randomId(0).peerId(message.getFromId()).execute();
                             }
                             break;
-                        // ВОДИТЕЛЬ - ВЫБОР ВРЕМЕНИ В ГОРОД
+                        // ВОДИТЕЛЬ - МАРШРУТ - ВЫБОР ВРЕМЕНИ В ГОРОД
                         case Context.DR_ROUTE_NEW_TIME_CT:
                             if (message.getText().equals("9:35")
                                     || message.getText().equals("11:25")
@@ -462,7 +610,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                 statmt.executeUpdate("UPDATE driverQuery SET timeCt = '" + message.getText() + "' WHERE userId = '" + message.getFromId() + "';");
                                 setContext(message.getFromId(), Context.DR_ROUTE_NEW_COUNT_CT);
                                 getClient().messages().send(groupActor)
-                                        .message(CHOICE_COUNT_CT_MESSAGE)
+                                        .message(DR_ROUTE_NEW_COUNT_CT_MESSAGE)
                                         .keyboard(countKeyboard)
                                         .randomId(0).peerId(message.getFromId()).execute();
                             }
@@ -476,7 +624,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                 if (resSet.getString("timeUn").toLowerCase().equals("нет")
                                         && resSet.getString("timeCt").toLowerCase().equals("нет")) {
                                     getClient().messages().send(groupActor)
-                                            .message(WARNING_CREATE_ROUTE_MESSAGE + "\n" + START_MESSAGE)
+                                            .message(DR_ROUTE_NEW_ERROR_MESSAGE + "\n" + START_MESSAGE)
                                             .keyboard(startKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
                                 }
@@ -487,19 +635,19 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                             dq.getCountUn() + ", '" + dq.getTimeCt() + "', " + dq.getCountCt() + ");");
                                     setContext(message.getFromId(), Context.START);
                                     getClient().messages().send(groupActor)
-                                            .message(SUCCESS_CREATE_ROUTE_MESSAGE + "\n" + START_MESSAGE)
+                                            .message(DR_ROUTE_NEW_SUCCESS_MESSAGE + "\n" + START_MESSAGE)
                                             .keyboard(startKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
                                 }
                             }
                             else {
                                 getClient().messages().send(groupActor)
-                                        .message(WARNING_MESSAGE + "\n" + CHOICE_CT_TIME_MESSAGE)
+                                        .message(WARNING_MESSAGE + "\n" + PAS_CHOICE_TIME_CT_MESSAGE)
                                         .keyboard(timeCtPasKeyboard)
                                         .randomId(0).peerId(message.getFromId()).execute();
                             }
                             break;
-                        // ВОДИТЕЛЬ - ВЫБОР КОЛ-ВА МЕСТ В ЗР
+                        // ВОДИТЕЛЬ - МАРШРУТ - ВЫБОР КОЛ-ВА МЕСТ В ЗР
                         case Context.DR_ROUTE_NEW_COUNT_CT:
                             if (NumberUtils.isCreatable(message.getText())) {
                                 statmt.executeUpdate("UPDATE driverQuery SET countCt = " + message.getText() + " WHERE userId = '" + message.getFromId() + "';");
@@ -511,18 +659,18 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                         dq.getCountUn() + ", '" + dq.getTimeCt() + "', " + dq.getCountCt() + ");");
                                 setContext(message.getFromId(), Context.START);
                                 getClient().messages().send(groupActor)
-                                        .message(SUCCESS_CREATE_ROUTE_MESSAGE + "\n" + START_MESSAGE)
+                                        .message(DR_ROUTE_NEW_SUCCESS_MESSAGE + "\n" + START_MESSAGE)
                                         .keyboard(startKeyboard)
                                         .randomId(0).peerId(message.getFromId()).execute();
                             }
                             else {
                                 getClient().messages().send(groupActor)
-                                        .message(WARNING_MESSAGE + "\n" + CHOICE_COUNT_CT_MESSAGE)
+                                        .message(WARNING_MESSAGE + "\n" + DR_ROUTE_NEW_COUNT_CT_MESSAGE)
                                         .keyboard(countKeyboard)
                                         .randomId(0).peerId(message.getFromId()).execute();
                             }
                             break;
-                        // ВОДИТЕЛЬ - ИЗМЕНИТЬ - ВЫБОР МАРШРУТА
+                        // ВОДИТЕЛЬ - МАРШРУТ - ИЗМЕНИТЬ - ВЫБОР МАРШРУТА
                         case Context.DR_ROUTE_CHANGE:
                             if (NumberUtils.isCreatable(message.getText()) && Integer.parseInt(message.getText()) <= LIMIT_ROUTE && Integer.parseInt(message.getText()) > 0) {
                                 resSet = statmt.executeQuery("SELECT id FROM route WHERE userId = " + message.getFromId() + ";");
@@ -530,7 +678,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                 for (int i = 0; i < Integer.parseInt(message.getText()); i++) {
                                     if (!resSet.next()) {
                                         getClient().messages().send(groupActor)
-                                                .message(THIS_ROUTE_NOT_FOUND_MESSAGE + "\n" + CHOICE_ROUTE_TO_CHANGE_MESSAGE)
+                                                .message(DR_ROUTE_CHANGE_THIS_ROUTE_NOT_FOUND_MESSAGE + "\n" + DR_ROUTE_CHANGE_MESSAGE)
                                                 .keyboard(choiceDriverQueryKeyboard)
                                                 .randomId(0).peerId(message.getFromId()).execute();
                                         isHave = false;
@@ -542,54 +690,54 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                     statmt.executeUpdate("UPDATE driverQuery SET cursor = " + id + " WHERE userId = '" + message.getFromId() + "';");
                                     setContext(message.getFromId(), Context.DR_ROUTE_CHANGE_MENU);
                                     getClient().messages().send(groupActor)
-                                            .message(CHOICE_PARAM_ROUTE_TO_CHANGE_MESSAGE)
+                                            .message(DR_ROUTE_CHANGE_MENU_MESSAGE)
                                             .keyboard(changeQueryDriverKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
                                 }
                             }
                             else {
                                 getClient().messages().send(groupActor)
-                                        .message(WARNING_MESSAGE + "\n" + CHOICE_ROUTE_TO_CHANGE_MESSAGE)
+                                        .message(WARNING_MESSAGE + "\n" + DR_ROUTE_CHANGE_MESSAGE)
                                         .keyboard(choiceDriverQueryKeyboard)
                                         .randomId(0).peerId(message.getFromId()).execute();
                             }
                             break;
-                        // ВОДИТЕЛЬ - ИЗМЕНИТЬ МАРШРУТ
+                        // ВОДИТЕЛЬ - МАРШРУТ - ИЗМЕНИТЬ МАРШРУТ
                         case Context.DR_ROUTE_CHANGE_MENU:
                             switch (message.getText().toLowerCase()) {
                                 case "день":
                                     updateDayKeyboard();
                                     setContext(message.getFromId(), Context.DR_ROUTE_CHANGE_DAY);
                                     getClient().messages().send(groupActor)
-                                            .message(CHOICE_DAY_MESSAGE)
+                                            .message(DAY_MESSAGE)
                                             .keyboard(dayKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
                                     break;
                                 case "время пгу":
                                     setContext(message.getFromId(), Context.DR_ROUTE_CHANGE_TIME_UN);
                                     getClient().messages().send(groupActor)
-                                            .message(CHOICE_UN_TIME_MESSAGE)
+                                            .message(PAS_CHOICE_TIME_UN_MESSAGE)
                                             .keyboard(timeUnDrKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
                                     break;
                                 case "места пгу":
                                     setContext(message.getFromId(), Context.DR_ROUTE_CHANGE_COUNT_UN);
                                     getClient().messages().send(groupActor)
-                                            .message(CHOICE_COUNT_UN_MESSAGE)
+                                            .message(DR_ROUTE_NEW_COUNT_UN_MESSAGE)
                                             .keyboard(countKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
                                     break;
                                 case "время зр":
                                     setContext(message.getFromId(), Context.DR_ROUTE_CHANGE_TIME_CT);
                                     getClient().messages().send(groupActor)
-                                            .message(CHOICE_CT_TIME_MESSAGE)
+                                            .message(PAS_CHOICE_TIME_CT_MESSAGE)
                                             .keyboard(timeCtDrKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
                                     break;
                                 case "места зр":
                                     setContext(message.getFromId(), Context.DR_ROUTE_CHANGE_COUNT_CT);
                                     getClient().messages().send(groupActor)
-                                            .message(CHOICE_COUNT_CT_MESSAGE)
+                                            .message(DR_ROUTE_NEW_COUNT_CT_MESSAGE)
                                             .keyboard(countKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
                                     break;
@@ -598,18 +746,18 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                     statmt.executeUpdate("DELETE FROM route WHERE id = '" + resSet.getInt("cursor") + "';");
                                     setContext(message.getFromId(), Context.START);
                                     getClient().messages().send(groupActor)
-                                            .message(DELETE_ROUTE_MESSAGE)
+                                            .message(DR_ROUTE_CHANGE_DELETE_MESSAGE)
                                             .keyboard(startKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
                                     break;
                                 default:
                                     getClient().messages().send(groupActor)
-                                            .message(WARNING_MESSAGE + "\n" + CHOICE_PARAM_ROUTE_TO_CHANGE_MESSAGE)
+                                            .message(WARNING_MESSAGE + "\n" + DR_ROUTE_CHANGE_MENU_MESSAGE)
                                             .keyboard(changeQueryDriverKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
                             }
                             break;
-                        // ВОДИТЕЛЬ - ИЗМЕНИТЬ - ДЕНЬ
+                        // ВОДИТЕЛЬ - МАРШРУТ - ИЗМЕНИТЬ - ДЕНЬ
                         case Context.DR_ROUTE_CHANGE_DAY:
                             switch (message.getText().toLowerCase()) {
                                 case "сегодня":
@@ -617,7 +765,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                     statmt.executeUpdate("UPDATE route SET day = '" + Day.getDay() + "' WHERE id = '" + resSet.getInt("cursor") + "';");
                                     setContext(message.getFromId(), Context.DR_ROUTE_CHANGE_MENU);
                                     getClient().messages().send(groupActor)
-                                            .message(ROUTE_CHANGE_MESSAGE)
+                                            .message(DR_ROUTE_CHANGE_SUCCESS_MESSAGE)
                                             .keyboard(changeQueryDriverKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
                                     break;
@@ -626,7 +774,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                     statmt.executeUpdate("UPDATE route SET day = '" + Day.getNextDay() + "' WHERE id = '" + resSet.getInt("cursor") + "';");
                                     setContext(message.getFromId(), Context.DR_ROUTE_CHANGE_MENU);
                                     getClient().messages().send(groupActor)
-                                            .message(ROUTE_CHANGE_MESSAGE)
+                                            .message(DR_ROUTE_CHANGE_SUCCESS_MESSAGE)
                                             .keyboard(changeQueryDriverKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
                                     break;
@@ -636,20 +784,20 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                         statmt.executeUpdate("UPDATE route SET day = '" + Day.getDay(m.group()) + "' WHERE userId = '" + message.getFromId() + "';");
                                         setContext(message.getFromId(), Context.DR_ROUTE_CHANGE_MENU);
                                         getClient().messages().send(groupActor)
-                                                .message(ROUTE_CHANGE_MESSAGE)
+                                                .message(DR_ROUTE_CHANGE_SUCCESS_MESSAGE)
                                                 .keyboard(changeQueryDriverKeyboard)
                                                 .randomId(0).peerId(message.getFromId()).execute();
                                     }
                                     else {
                                         updateDayKeyboard();
                                         getClient().messages().send(groupActor)
-                                                .message(WARNING_MESSAGE + "\n" + CHOICE_DAY_MESSAGE)
+                                                .message(WARNING_MESSAGE + "\n" + DAY_MESSAGE)
                                                 .keyboard(dayKeyboard)
                                                 .randomId(0).peerId(message.getFromId()).execute();
                                     }
                             }
                             break;
-                        // ВОДИТЕЛЬ - ИЗМЕНИТЬ - ВРЕМЯ ПГУ
+                        // ВОДИТЕЛЬ - МАРШРУТ - ИЗМЕНИТЬ - ВРЕМЯ ПГУ
                         case Context.DR_ROUTE_CHANGE_TIME_UN:
                             switch (message.getText().toLowerCase()) {
                                 case "8:00":
@@ -663,36 +811,36 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                     statmt.executeUpdate("UPDATE route SET timeUn = '" + message.getText() + "' WHERE id = '" + resSet.getInt("cursor") + "';");
                                     setContext(message.getFromId(), Context.DR_ROUTE_CHANGE_MENU);
                                     getClient().messages().send(groupActor)
-                                            .message(ROUTE_CHANGE_MESSAGE)
+                                            .message(DR_ROUTE_CHANGE_SUCCESS_MESSAGE)
                                             .keyboard(changeQueryDriverKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
                                     break;
                                 default:
                                     getClient().messages().send(groupActor)
-                                            .message(WARNING_MESSAGE + "\n" + CHOICE_UN_TIME_MESSAGE)
+                                            .message(WARNING_MESSAGE + "\n" + PAS_CHOICE_TIME_UN_MESSAGE)
                                             .keyboard(timeUnDrKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
                             }
                             break;
-                        // ВОДИТЕЛЬ - ИЗМЕНИТЬ - КОЛВО ПГУ
+                        // ВОДИТЕЛЬ - МАРШРУТ - ИЗМЕНИТЬ - КОЛВО ПГУ
                         case Context.DR_ROUTE_CHANGE_COUNT_UN:
                             if (NumberUtils.isCreatable(message.getText())) {
                                 resSet = statmt.executeQuery("SELECT cursor FROM driverQuery WHERE userId = " + message.getFromId() + ";");
                                 statmt.executeUpdate("UPDATE route SET countUn = " + message.getText() + " WHERE id = '" + resSet.getInt("cursor") + "';");
                                 setContext(message.getFromId(), Context.DR_ROUTE_CHANGE_MENU);
                                 getClient().messages().send(groupActor)
-                                        .message(ROUTE_CHANGE_MESSAGE)
+                                        .message(DR_ROUTE_CHANGE_SUCCESS_MESSAGE)
                                         .keyboard(changeQueryDriverKeyboard)
                                         .randomId(0).peerId(message.getFromId()).execute();
                             }
                             else {
                                 getClient().messages().send(groupActor)
-                                        .message(WARNING_MESSAGE + "\n" + CHOICE_COUNT_UN_MESSAGE)
+                                        .message(WARNING_MESSAGE + "\n" + DR_ROUTE_NEW_COUNT_UN_MESSAGE)
                                         .keyboard(countKeyboard)
                                         .randomId(0).peerId(message.getFromId()).execute();
                             }
                             break;
-                        // ВОДИТЕЛЬ - ИЗМЕНИТЬ - ВРЕМЯ ЗР
+                        // ВОДИТЕЛЬ - МАРШРУТ - ИЗМЕНИТЬ - ВРЕМЯ ЗР
                         case Context.DR_ROUTE_CHANGE_TIME_CT:
                             switch (message.getText().toLowerCase()) {
                                 case "9:35":
@@ -706,31 +854,31 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                     statmt.executeUpdate("UPDATE route SET timeCt = '" + message.getText() + "' WHERE id = '" + resSet.getInt("cursor") + "';");
                                     setContext(message.getFromId(), Context.DR_ROUTE_CHANGE_MENU);
                                     getClient().messages().send(groupActor)
-                                            .message(ROUTE_CHANGE_MESSAGE)
+                                            .message(DR_ROUTE_CHANGE_SUCCESS_MESSAGE)
                                             .keyboard(changeQueryDriverKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
                                     break;
                                 default:
                                     getClient().messages().send(groupActor)
-                                            .message(WARNING_MESSAGE + "\n" + CHOICE_CT_TIME_MESSAGE)
+                                            .message(WARNING_MESSAGE + "\n" + PAS_CHOICE_TIME_CT_MESSAGE)
                                             .keyboard(timeCtDrKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
                             }
                             break;
-                        // ВОДИТЕЛЬ - ИЗМЕНИТЬ - КОЛВО МЕСТ ЗР
+                        // ВОДИТЕЛЬ - МАРШРУТ - ИЗМЕНИТЬ - КОЛВО МЕСТ ЗР
                         case Context.DR_ROUTE_CHANGE_COUNT_CT:
                             if (NumberUtils.isCreatable(message.getText())) {
                                 resSet = statmt.executeQuery("SELECT cursor FROM driverQuery WHERE userId = " + message.getFromId() + ";");
                                 statmt.executeUpdate("UPDATE route SET countCt = " + message.getText() + " WHERE id = '" + resSet.getInt("cursor") + "';");
                                 setContext(message.getFromId(), Context.DR_ROUTE_CHANGE_MENU);
                                 getClient().messages().send(groupActor)
-                                        .message(ROUTE_CHANGE_MESSAGE)
+                                        .message(DR_ROUTE_CHANGE_SUCCESS_MESSAGE)
                                         .keyboard(changeQueryDriverKeyboard)
                                         .randomId(0).peerId(message.getFromId()).execute();
                             }
                             else {
                                 getClient().messages().send(groupActor)
-                                        .message(WARNING_MESSAGE + "\n" + CHOICE_COUNT_CT_MESSAGE)
+                                        .message(WARNING_MESSAGE + "\n" + DR_ROUTE_NEW_COUNT_CT_MESSAGE)
                                         .keyboard(countKeyboard)
                                         .randomId(0).peerId(message.getFromId()).execute();
                             }
@@ -759,6 +907,8 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                         "VALUES ('" + message.getFromId() + "'); ");
                 statmt.execute("INSERT INTO driverQuery (userId) " +
                         "VALUES ('" + message.getFromId() + "'); ");
+                statmt.execute("INSERT INTO driverPage " +
+                        "VALUES ('" + message.getFromId() + "', '-', '-', '-', '-'); ");
                 getClient().messages().send(groupActor)
                         .message(START_MESSAGE)
                         .keyboard(startKeyboard)
@@ -770,6 +920,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
         } catch (Exception e) {
             System.out.println(e.getMessage());
             try {
+                setContext(message.getFromId(), Context.START);
                 getClient().messages().send(groupActor)
                         .message(ERROR_MESSAGE + e.getMessage())
                         .keyboard(startKeyboard)
@@ -778,6 +929,8 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                 System.out.println(e.getMessage());
             } catch (ClientException ex) {
                 System.out.println(e.getMessage());
+            } catch (SQLException ex) {
+                ex.printStackTrace();
             }
         }
     }
@@ -981,25 +1134,55 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
         List<List<KeyboardButton>> listKey = new LinkedList();
         List<KeyboardButton> row1 = new LinkedList<>();
         List<KeyboardButton> row2 = new LinkedList<>();
+        List<KeyboardButton> row3 = new LinkedList<>();
+
+        KeyboardButton sendQueryKey = new KeyboardButton()
+                .setAction(new KeyboardButtonAction().setType(KeyboardButtonActionType.TEXT)
+                        .setLabel("Отправить запрос"))
+                .setColor(KeyboardButtonColor.NEGATIVE);
+        row1.add(sendQueryKey);
+        listKey.add(row1);
 
         KeyboardButton nextKey = new KeyboardButton()
                 .setAction(new KeyboardButtonAction().setType(KeyboardButtonActionType.TEXT)
                         .setLabel("Дальше"))
                 .setColor(KeyboardButtonColor.PRIMARY);
-        row1.add(nextKey);
-        listKey.add(row1);
+        row2.add(nextKey);
+        listKey.add(row2);
 
         KeyboardButton startKey = new KeyboardButton()
                 .setAction(new KeyboardButtonAction().setType(KeyboardButtonActionType.TEXT)
                         .setLabel("Начало"))
                 .setColor(KeyboardButtonColor.DEFAULT);
-        row2.add(startKey);
-        listKey.add(row2);
+        row3.add(startKey);
+        listKey.add(row3);
 
         choicePasKeyboard = new Keyboard().setOneTime(true).setButtons(listKey);
     }
 
     private void buildDriverKeyboard() {
+        List<List<KeyboardButton>> listKey = new LinkedList();
+        List<KeyboardButton> row1 = new LinkedList<>();
+        List<KeyboardButton> row2 = new LinkedList<>();
+
+        KeyboardButton changeKey = new KeyboardButton()
+                .setAction(new KeyboardButtonAction().setType(KeyboardButtonActionType.TEXT)
+                        .setLabel("Страница"))
+                .setColor(KeyboardButtonColor.DEFAULT);
+        row1.add(changeKey);
+        listKey.add(row1);
+
+        KeyboardButton newKey = new KeyboardButton()
+                .setAction(new KeyboardButtonAction().setType(KeyboardButtonActionType.TEXT)
+                        .setLabel("Маршрут"))
+                .setColor(KeyboardButtonColor.PRIMARY);
+        row2.add(newKey);
+        listKey.add(row2);
+
+        driverKeyboard = new Keyboard().setOneTime(true).setButtons(listKey);
+    }
+
+    private void buildDriverRouteKeyboard() {
         List<List<KeyboardButton>> listKey = new LinkedList();
         List<KeyboardButton> row1 = new LinkedList<>();
         List<KeyboardButton> row2 = new LinkedList<>();
@@ -1018,7 +1201,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
         row2.add(newKey);
         listKey.add(row2);
 
-        driverKeyboard = new Keyboard().setOneTime(true).setButtons(listKey);
+        driverRouteKeyboard = new Keyboard().setOneTime(true).setButtons(listKey);
     }
 
     private void buildTimeUnDrKeyboard() {
@@ -1266,6 +1449,57 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
         listKey.add(row4);
 
         choiceDriverQueryKeyboard = new Keyboard().setOneTime(true).setButtons(listKey);
+    }
+
+    private void buildDriverPageKeyboard() {
+        List<List<KeyboardButton>> listKey = new LinkedList();
+        List<KeyboardButton> row1 = new LinkedList<>();
+        List<KeyboardButton> row2 = new LinkedList<>();
+        List<KeyboardButton> row3 = new LinkedList<>();
+        List<KeyboardButton> row4 = new LinkedList<>();
+        List<KeyboardButton> row5 = new LinkedList<>();
+
+        KeyboardButton nicknameKey = new KeyboardButton()
+                .setAction(new KeyboardButtonAction().setType(KeyboardButtonActionType.TEXT)
+                        .setLabel("Имя"))
+                .setColor(KeyboardButtonColor.PRIMARY);
+        row1.add(nicknameKey);
+        listKey.add(row1);
+
+        KeyboardButton indexCarKey = new KeyboardButton()
+                .setAction(new KeyboardButtonAction().setType(KeyboardButtonActionType.TEXT)
+                        .setLabel("Номер машины"))
+                .setColor(KeyboardButtonColor.POSITIVE);
+        KeyboardButton modelCarKey = new KeyboardButton()
+                .setAction(new KeyboardButtonAction().setType(KeyboardButtonActionType.TEXT)
+                        .setLabel("Модель машины"))
+                .setColor(KeyboardButtonColor.POSITIVE);
+        row2.add(indexCarKey);
+        row2.add(modelCarKey);
+        listKey.add(row2);
+
+        KeyboardButton ctTimeKey = new KeyboardButton()
+                .setAction(new KeyboardButtonAction().setType(KeyboardButtonActionType.TEXT)
+                        .setLabel("Описание"))
+                .setColor(KeyboardButtonColor.POSITIVE);
+        row3.add(ctTimeKey);
+        listKey.add(row3);
+
+        KeyboardButton clearKey = new KeyboardButton()
+                .setAction(new KeyboardButtonAction().setType(KeyboardButtonActionType.TEXT)
+                        .setLabel("Очистить"))
+                .setColor(KeyboardButtonColor.NEGATIVE);
+        row4.add(clearKey);
+        listKey.add(row4);
+
+        KeyboardButton startKey = new KeyboardButton()
+                .setAction(new KeyboardButtonAction().setType(KeyboardButtonActionType.TEXT)
+                        .setLabel("Начало"))
+                .setColor(KeyboardButtonColor.DEFAULT);
+        row5.add(startKey);
+        listKey.add(row5);
+
+        driverPageKeyboard = new Keyboard().setOneTime(true).setButtons(listKey);
     }
 
     private void setContext(int userId, int contextId) throws SQLException {

@@ -12,6 +12,14 @@ public class Context extends UserDB {
     public static final int PAS_CHOICE_TIME = 102;
     public static final int PAS_CHOICE_DRIVER = 103;
 
+    public static final int DR_MENU = 150;
+
+    public static final int DR_PAGE = 151;
+    public static final int DR_PAGE_NICKNAME = 152;
+    public static final int DR_PAGE_INDEX_CAR = 153;
+    public static final int DR_PAGE_MODEL_CAR = 154;
+    public static final int DR_PAGE_DESCRIPTION = 155;
+
     public static final int DR_ROUTE = 200;
     public static final int DR_ROUTE_NEW_DAY = 201;
     public static final int DR_ROUTE_NEW_TIME_UN = 202;

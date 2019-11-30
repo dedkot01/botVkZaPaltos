@@ -83,7 +83,7 @@ public class Route extends UserDB {
                     strBuild.append(" мест ");
             }
         }
-        return strBuild.append("\n@id").append(getUserId()).toString();
+        return strBuild.toString();
     }
 
     public String toString() {
