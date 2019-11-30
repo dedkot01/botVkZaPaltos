@@ -11,6 +11,7 @@ public class Context extends UserDB {
     public static final int PAS_CHOICE_TARGET = 101;
     public static final int PAS_CHOICE_TIME = 102;
     public static final int PAS_CHOICE_DRIVER = 103;
+    public static final int PAS_DRIVER_NOT_FOUND = 104;
 
     public static final int DR_MENU = 150;
 

@@ -8,6 +8,7 @@ import database.*;
 import org.apache.commons.lang3.math.NumberUtils;
 
 import java.sql.*;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -24,13 +25,16 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
             "Оповестив администрацию об ошибке, вы поможете её устранить)\nError: ";
     private static final String OLD_CONTEXT_MESSAGE = "Ваша сессия устарела, возвращение в главное меню";
 
+    private static final String WARNING_UNSUBSCRIBE_MESSAGE = "Данное действие приведёт к отмене подписки!";
     private static final String DAY_MESSAGE = "День поездки:";
     private static final String PAS_CHOICE_TARGET_MESSAGE = "Пункт назначения:";
     private static final String PAS_CHOICE_TIME_UN_MESSAGE = "Время пары:";
     private static final String PAS_CHOICE_TIME_CT_MESSAGE = "Время после пары:";
-    private static final String PAS_DRIVER_NOT_FOUND_MESSAGE = "Нет водителей, возвращение в главное меню";
-    private static final String PAS_DRIVER_SEND_QUERY = "Запрос отправлен";
-    private static final String PAS_DRIVER_RECIVED_QUERY = "Этот пассажир не может с вами связаться";
+    private static final String PAS_DRIVER_NOT_FOUND_MESSAGE = "Нет водителей";
+    private static final String PAS_SUBSCRIBE_MESSAGE = "Если отправите \"Подписаться\", я оповещу вас о новых водителях по вашему запросу";
+    private static final String PAS_SUBSCRIBE_SUCCESS_MESSAGE = "Вы подписались на заданный маршрут";
+    private static final String PAS_DRIVER_SEND_QUERY_MESSAGE = "Запрос отправлен";
+    private static final String PAS_DRIVER_RECIVED_QUERY_MESSAGE = "Этот пассажир не может с вами связаться";
 
     private static final String DR_MENU_MESSAGE = "Меню водителя: вы можете изменить свою страничку или изменить/создать новый маршрут";
     private static final String DR_PAGE_MESSAGE = "Что хотите изменить?";
@@ -69,6 +73,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
     private Keyboard timeUnDrKeyboard;
     private Keyboard timeCtDrKeyboard;
     private Keyboard countKeyboard;
+    private Keyboard subscribeKeyboard;
 
     public CallbackApiLongPollHandler(VkApiClient client, GroupActor actor) {
         super(client, actor);
@@ -91,6 +96,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
         buildTimeCtDrKeyboard();
         buildCountKeyboard();
         buildChangeDriverKeyboard();
+        buildSubscribeKeyboard();
         try {
             connDb = null;
             Class.forName("org.sqlite.JDBC");
@@ -113,7 +119,8 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                         "day TEXT, " +
                         "target TEXT, " +
                         "time TEXT, " +
-                        "cursor INTEGER);");
+                        "cursor INTEGER, " +
+                        "subscribe INTEGER);");
                 System.out.println("Table passengerQuery create.");
             }
             catch (SQLException e) {
@@ -210,7 +217,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                     updateDayKeyboard();
                                     setContext(message.getFromId(), Context.PAS_CHOICE_DAY);
                                     getClient().messages().send(groupActor)
-                                            .message(DAY_MESSAGE)
+                                            .message(DAY_MESSAGE + "\n" + WARNING_UNSUBSCRIBE_MESSAGE)
                                             .keyboard(dayKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
                                     break;
@@ -225,7 +232,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                         case Context.PAS_CHOICE_DAY:
                             switch (message.getText().toLowerCase()) {
                                 case "сегодня":
-                                    statmt.executeUpdate("UPDATE passengerQuery SET day = '" + Day.getDay() + "' WHERE userId = '" + message.getFromId() + "';");
+                                    statmt.executeUpdate("UPDATE passengerQuery SET subscribe = 0, day = '" + Day.getDay() + "' WHERE userId = '" + message.getFromId() + "';");
                                     setContext(message.getFromId(), Context.PAS_CHOICE_TARGET);
                                     getClient().messages().send(groupActor)
                                             .message(PAS_CHOICE_TARGET_MESSAGE)
@@ -233,7 +240,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                             .randomId(0).peerId(message.getFromId()).execute();
                                     break;
                                 case "завтра":
-                                    statmt.executeUpdate("UPDATE passengerQuery SET day = '" + Day.getNextDay() + "' WHERE userId = '" + message.getFromId() + "';");
+                                    statmt.executeUpdate("UPDATE passengerQuery SET subscribe = 0, day = '" + Day.getNextDay() + "' WHERE userId = '" + message.getFromId() + "';");
                                     setContext(message.getFromId(), Context.PAS_CHOICE_TARGET);
                                     getClient().messages().send(groupActor)
                                             .message(PAS_CHOICE_TARGET_MESSAGE)
@@ -243,7 +250,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                 default:
                                     Matcher m = Pattern.compile("([0-9]+{1,2} [а-я]+[.]|[0-9]+{1,2}.[0-9]+{1,2}|[0-9]+{1,2} [0-9]+{1,2})").matcher(message.getText());
                                     if (m.find()) {
-                                        statmt.executeUpdate("UPDATE passengerQuery SET day = '" + Day.getDay(m.group()) + "' WHERE userId = '" + message.getFromId() + "';");
+                                        statmt.executeUpdate("UPDATE passengerQuery SET subscribe = 0, day = '" + Day.getDay(m.group()) + "' WHERE userId = '" + message.getFromId() + "';");
                                         setContext(message.getFromId(), Context.PAS_CHOICE_TARGET);
                                         getClient().messages().send(groupActor)
                                                 .message(PAS_CHOICE_TARGET_MESSAGE)
@@ -320,10 +327,10 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                         "(SELECT cursor FROM passengerQuery WHERE userId = " + message.getFromId() + ");");
                                 int idDriver = resSet.getInt("userId");
                                 getClient().messages().send(groupActor)
-                                        .message(PAS_DRIVER_RECIVED_QUERY + "\n@id" + message.getFromId())
+                                        .message(PAS_DRIVER_RECIVED_QUERY_MESSAGE + "\n@id" + message.getFromId())
                                         .randomId(0).peerId(idDriver).execute();
                                 getClient().messages().send(groupActor)
-                                        .message(PAS_DRIVER_SEND_QUERY)
+                                        .message(PAS_DRIVER_SEND_QUERY_MESSAGE)
                                         .keyboard(choicePasKeyboard)
                                         .randomId(0).peerId(message.getFromId()).execute();
                             }
@@ -348,12 +355,32 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                             .keyboard(choicePasKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
                                 } else {
-                                    setContext(message.getFromId(), Context.START);
+                                    statmt.executeUpdate("UPDATE passengerQuery SET cursor = 0 WHERE userId = '" + message.getFromId() + "';");
+                                    setContext(message.getFromId(), Context.PAS_DRIVER_NOT_FOUND);
                                     getClient().messages().send(groupActor)
-                                            .message(PAS_DRIVER_NOT_FOUND_MESSAGE)
-                                            .keyboard(startKeyboard)
+                                            .message(PAS_DRIVER_NOT_FOUND_MESSAGE + "\n" + PAS_SUBSCRIBE_MESSAGE)
+                                            .keyboard(subscribeKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
                                 }
+                            }
+                            break;
+                        // ПАССАЖИР - НЕТ ВОДИТЕЛЕЙ
+                        case Context.PAS_DRIVER_NOT_FOUND:
+                            switch (message.getText().toLowerCase()) {
+                                case "подписаться":
+                                    statmt.executeUpdate("UPDATE passengerQuery SET subscribe = 1 WHERE userId = '" + message.getFromId() + "';");
+                                    setContext(message.getFromId(), Context.START);
+                                    getClient().messages().send(groupActor)
+                                            .message(PAS_SUBSCRIBE_SUCCESS_MESSAGE + "\n" + START_MESSAGE)
+                                            .keyboard(startKeyboard)
+                                            .randomId(0).peerId(message.getFromId()).execute();
+                                    break;
+                                default:
+                                    getClient().messages().send(groupActor)
+                                            .message(WARNING_MESSAGE + "\n" + PAS_SUBSCRIBE_MESSAGE)
+                                            .keyboard(subscribeKeyboard)
+                                            .randomId(0).peerId(message.getFromId()).execute();
+                                    break;
                             }
                             break;
                         // ВОДИТЕЛЬ
@@ -1468,6 +1495,28 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
         driverPageKeyboard = new Keyboard().setOneTime(true).setButtons(listKey);
     }
 
+    private void buildSubscribeKeyboard() {
+        List<List<KeyboardButton>> listKey = new LinkedList();
+        List<KeyboardButton> row1 = new LinkedList<>();
+        List<KeyboardButton> row2 = new LinkedList<>();
+
+        KeyboardButton subscribeKey = new KeyboardButton()
+                .setAction(new KeyboardButtonAction().setType(KeyboardButtonActionType.TEXT)
+                        .setLabel("Подписаться"))
+                .setColor(KeyboardButtonColor.POSITIVE);
+        row1.add(subscribeKey);
+        listKey.add(row1);
+
+        KeyboardButton startKey = new KeyboardButton()
+                .setAction(new KeyboardButtonAction().setType(KeyboardButtonActionType.TEXT)
+                        .setLabel("Начало"))
+                .setColor(KeyboardButtonColor.DEFAULT);
+        row2.add(startKey);
+        listKey.add(row2);
+
+        subscribeKeyboard = new Keyboard().setOneTime(true).setButtons(listKey);
+    }
+
     private void setContext(int userId, int contextId) throws SQLException {
         statmt.executeUpdate("UPDATE context SET contextId = " + contextId + ", date = '" + Day.getDay() + "' WHERE userId = '" + userId + "';");
     }
@@ -1479,6 +1528,30 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
         dayKeyboard.getButtons().get(1).get(1).getAction().setLabel("Чт (" + Day.getDay(Calendar.THURSDAY) + ")");
         dayKeyboard.getButtons().get(2).get(0).getAction().setLabel("Пт (" + Day.getDay(Calendar.FRIDAY) + ")");
         dayKeyboard.getButtons().get(2).get(1).getAction().setLabel("Сб (" + Day.getDay(Calendar.SATURDAY) + ")");
+    }
+
+    // ОПОВЕЩЕНИЕ ПОДПИСЧИКОВ
+    private void notificationSubscribe(int idRoute, String target) throws SQLException, ParseException, ClientException, ApiException {
+        resSet = statmt.executeQuery("SELECT * FROM route WHERE id = " + idRoute + ";");
+        Route r = new Route(resSet);
+        resSet = statmt.executeQuery("SELECT * FROM driverPage WHERE userId = " + r.getUserId() + ";");
+        DriverPage dp = new DriverPage(resSet);
+
+        if (target.equals("ПГУ")) {
+            resSet = statmt.executeQuery("SELECT userId FROM passengerQuery WHERE subscribe = 1 AND " +
+                    "day = '" + r.getDay() + "' AND time = '" + r.getTimeUn() + "';");
+        }
+        else if (target.equals("Зр")) {
+            resSet = statmt.executeQuery("SELECT userId FROM passengerQuery WHERE subscribe = 1 AND " +
+                    "day = '" + r.getDay() + "' AND time = '" + r.getTimeCt() + "';");
+        }
+
+        while (resSet.next()) {
+            int idPas = resSet.getInt("userId");
+            getClient().messages().send(groupActor)
+                    .message(PAS_SUBSCRIBE_MESSAGE + "\n" + dp.toString() + "\n" + r.getRouteText())
+                    .randomId(0).peerId(idPas).execute();
+        }
     }
 
 }
