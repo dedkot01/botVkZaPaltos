@@ -38,6 +38,7 @@ public class Day {
 
     public static String getDay(int value) {
         GregorianCalendar gc = new GregorianCalendar();
+
         gc.setFirstDayOfWeek(1);
         if (gc.get(Calendar.DAY_OF_WEEK) <= value) {
             gc.set(Calendar.DAY_OF_WEEK, value);

@@ -9,6 +9,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
 
+import static java.lang.Thread.sleep;
+
 public class Application {
 
     private static final String PROPERTIES_FILE = "config.properties";
@@ -18,11 +20,24 @@ public class Application {
         Properties properties = readProperties();
         GroupActor groupActor = createGroupActor(properties);
 
-        HttpTransportClient httpClient = HttpTransportClient.getInstance();
-        VkApiClient vk = new VkApiClient(httpClient);
+        while(true) {
+            try {
+                HttpTransportClient httpClient = HttpTransportClient.getInstance();
+                VkApiClient vk = new VkApiClient(httpClient);
 
-        CallbackApiLongPollHandler handler = new CallbackApiLongPollHandler(vk, groupActor);
-        handler.run();
+                CallbackApiLongPollHandler handler = new CallbackApiLongPollHandler(vk, groupActor);
+                handler.run();
+            }
+            catch (Exception e) {
+                System.out.println("ANOMALY\n" + e.getMessage());
+            }
+            try {
+                sleep(60000);
+            }
+            catch (InterruptedException e) {
+                System.out.println("I can not fall asleep\n");
+            }
+        }
     }
 
     private static GroupActor createGroupActor(Properties properties) {

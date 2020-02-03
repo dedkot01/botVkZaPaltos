@@ -81,6 +81,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
         groupActor = actor;
 
         Day.addKnownPatternsDate(new SimpleDateFormat("d MMM yyyy"));
+        Day.addKnownPatternsDate(new SimpleDateFormat("d MM yyyy"));
         Day.addKnownPatternsDate(new SimpleDateFormat("d M yyyy"));
         Day.addKnownPatternsDate(new SimpleDateFormat("d.M yyyy"));
 
@@ -187,6 +188,14 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
         }
     }
 
+    public static void sqlQuerySelect(String query) throws SQLException {
+        statmt.executeUpdate(query);
+    }
+
+    public static ResultSet sqlQuery(String query) throws SQLException {
+        return statmt.executeQuery(query);
+    }
+
     public void messageNew(Integer groupId, Message message) {
         try {
             if (message.getText().equals("0") ||
@@ -285,7 +294,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                             .randomId(0).peerId(message.getFromId()).execute();
                                     break;
                                 default:
-                                    Matcher m = Pattern.compile("([0-9]+{1,2} [а-я]+[.]|[0-9]+{1,2}.[0-9]+{1,2}|[0-9]+{1,2} [0-9]+{1,2})").matcher(message.getText());
+                                    Matcher m = Pattern.compile("([0-9]+{1,2} [а-я]+|[0-9]+{1,2}.[0-9]+{1,2}|[0-9]+{1,2} [0-9]+{1,2})").matcher(message.getText());
                                     if (m.find()) {
                                         statmt.executeUpdate("UPDATE passengerQuery SET subscribe = 0, day = '" + Day.getDay(m.group()) + "' WHERE userId = '" + message.getFromId() + "';");
                                         setContext(message.getFromId(), Context.PAS_CHOICE_TARGET);
@@ -585,7 +594,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                             .randomId(0).peerId(message.getFromId()).execute();
                                     break;
                                 default:
-                                    Matcher m = Pattern.compile("([0-9]+{1,2} [а-я]+[.]|[0-9]+{1,2}.[0-9]+{1,2}|[0-9]+{1,2} [0-9]+{1,2})").matcher(message.getText());
+                                    Matcher m = Pattern.compile("([0-9]+{1,2} [а-я]+|[0-9]+{1,2}.[0-9]+{1,2}|[0-9]+{1,2} [0-9]+{1,2})").matcher(message.getText());
                                     if (m.find()) {
                                         statmt.executeUpdate("UPDATE driverQuery SET day = '" + Day.getDay(m.group()) + "' WHERE userId = '" + message.getFromId() + "';");
                                         setContext(message.getFromId(), Context.DR_ROUTE_NEW_TIME_UN);
@@ -831,7 +840,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                             .randomId(0).peerId(message.getFromId()).execute();
                                     break;
                                 default:
-                                    Matcher m = Pattern.compile("([0-9]+{1,2} [а-я]+[.]|[0-9]+{1,2}.[0-9]+{1,2}|[0-9]+{1,2} [0-9]+{1,2})").matcher(message.getText());
+                                    Matcher m = Pattern.compile("([0-9]+{1,2} [а-я]+|[0-9]+{1,2}.[0-9]+{1,2}|[0-9]+{1,2} [0-9]+{1,2})").matcher(message.getText());
                                     if (m.find()) {
                                         statmt.executeUpdate("UPDATE route SET day = '" + Day.getDay(m.group()) + "' WHERE userId = '" + message.getFromId() + "';");
                                         setContext(message.getFromId(), Context.DR_ROUTE_CHANGE_MENU);
