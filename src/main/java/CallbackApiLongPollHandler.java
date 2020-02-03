@@ -11,6 +11,7 @@ import java.sql.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.Date;
+import java.util.concurrent.Semaphore;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -33,7 +34,6 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
     private static final String PAS_DRIVER_NOT_FOUND_MESSAGE = "Нет водителей";
     private static final String PAS_SUBSCRIBE_MESSAGE = "Если отправите \"Подписаться\", я оповещу вас о новых водителях по вашему запросу";
     private static final String PAS_SUBSCRIBE_SUCCESS_MESSAGE = "Вы подписались на заданный маршрут";
-    private static final String PAS_NOTIFICATION_MESSAGE = "По вашей подписке появились новые записи";
     private static final String PAS_DRIVER_SEND_QUERY_MESSAGE = "Запрос отправлен";
     private static final String PAS_DRIVER_RECIVED_QUERY_MESSAGE = "Этот пассажир не может с вами связаться";
 
@@ -57,6 +57,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
     public static Connection connDb;
     public static Statement statmt;
     public static ResultSet resSet;
+    public static Semaphore sem;
 
     private GroupActor groupActor;
 
@@ -76,7 +77,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
     private Keyboard countKeyboard;
     private Keyboard subscribeKeyboard;
 
-    public CallbackApiLongPollHandler(VkApiClient client, GroupActor actor) {
+    public CallbackApiLongPollHandler(VkApiClient client, GroupActor actor, int indexUpdTh) {
         super(client, actor);
         groupActor = actor;
 
@@ -178,7 +179,9 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                     System.out.println(e.getMessage());
             }
 
-            UpdateDbThread updateDbThread = new UpdateDbThread(getClient(), actor);
+            sem = new Semaphore(1);
+            UpdateDbThread updateDbThread = new UpdateDbThread(getClient(), actor, statmt, sem);
+            updateDbThread.setName("UpdateThread" + String.valueOf(indexUpdTh));
             updateDbThread.start();
 
             System.out.println("Initialization complete! Run.\n");
@@ -188,16 +191,9 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
         }
     }
 
-    public static void sqlQuerySelect(String query) throws SQLException {
-        statmt.executeUpdate(query);
-    }
-
-    public static ResultSet sqlQuery(String query) throws SQLException {
-        return statmt.executeQuery(query);
-    }
-
     public void messageNew(Integer groupId, Message message) {
         try {
+            sem.acquire();
             if (message.getText().equals("0") ||
                     message.getText().toLowerCase().equals("начало")) {
                 setContext(message.getFromId(), Context.START);
@@ -205,42 +201,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                         .message(START_MESSAGE)
                         .keyboard(startKeyboard)
                         .randomId(0).peerId(message.getFromId()).execute();
-                return;
-            }
-            if (message.getFromId() == 71990175 && message.getText().toLowerCase().equals("обновить")) {
-                try {
-                    // УДАЛЕНИЕ СТАРЫХ ЗАПИСЕЙ
-                    resSet = statmt.executeQuery("SELECT id, day FROM route;");
-                    while (resSet.next()) {
-                        Date today = new SimpleDateFormat("d.M.yyyy").parse(Day.getDay());
-                        Date route = new SimpleDateFormat("d.M.yyyy").parse(resSet.getString("day"));
-                        if (today.after(route)) {
-                            statmt.executeUpdate("DELETE FROM route WHERE id = " + resSet.getString("id") + ";");
-                            resSet = statmt.executeQuery("SELECT id, day FROM route;");
-                        }
-                    }
-                    // ОПОВЕЩЕНИЕ ПОДПИСЧИКОВ
-                    LinkedList<PassengerQuery> listPas = new LinkedList<>();
-                    resSet = statmt.executeQuery("SELECT * FROM passengerQuery WHERE subscribe = 1;");
-                    while (resSet.next()) {
-                        listPas.add(new PassengerQuery(resSet));
-                    }
-                    for (PassengerQuery pq : listPas) {
-                        resSet = statmt.executeQuery("SELECT count(*) FROM route WHERE day = '" + pq.getDay() + "' " +
-                                "AND (timeUn = '" + pq.getTime() + "' OR timeCt = '" + pq.getTime() + "');");
-                        if (resSet.getInt(1) != 0) {
-                            statmt.executeUpdate("UPDATE passengerQuery SET subscribe = 0 WHERE userId = " + pq.getUserId() + ";");
-                            getClient().messages().send(groupActor)
-                                    .message(PAS_NOTIFICATION_MESSAGE)
-                                    .randomId(0).peerId(pq.getUserId()).execute();
-                        }
-                    }
-                    getClient().messages().send(groupActor)
-                            .message("База обновлена")
-                            .randomId(0).peerId(71990175).execute();
-                } catch (Exception e) {
-                    System.out.println("Проблема в нитке обновления\n" + e.getMessage());
-                }
+                sem.release();
                 return;
             }
             resSet = statmt.executeQuery("SELECT * FROM context WHERE userId = '" + message.getFromId() + "';");
@@ -302,8 +263,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                                 .message(PAS_CHOICE_TARGET_MESSAGE)
                                                 .keyboard(targetKeyboard)
                                                 .randomId(0).peerId(message.getFromId()).execute();
-                                    }
-                                    else {
+                                    } else {
                                         updateDayKeyboard();
                                         getClient().messages().send(groupActor)
                                                 .message(WARNING_MESSAGE + "\n" + DAY_MESSAGE)
@@ -348,8 +308,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                     || message.getText().equals("17:25") || message.getText().equals("19:00")) {
                                 statmt.executeUpdate("UPDATE passengerQuery SET time = '" + message.getText() + "', cursor = 0 WHERE userId = '" + message.getFromId() + "';");
                                 setContext(message.getFromId(), Context.PAS_CHOICE_DRIVER);
-                            }
-                            else {
+                            } else {
                                 resSet = statmt.executeQuery("SELECT target FROM passengerQuery WHERE userId = '" + message.getFromId() + "';");
                                 resSet.next();
                                 if (resSet.getString("target").equals("ПГУ")) {
@@ -357,8 +316,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                             .message(WARNING_MESSAGE + "\n" + PAS_CHOICE_TIME_UN_MESSAGE)
                                             .keyboard(timeUnPasKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
-                                }
-                                else {
+                                } else {
                                     getClient().messages().send(groupActor)
                                             .message(WARNING_MESSAGE + "\n" + PAS_CHOICE_TIME_CT_MESSAGE)
                                             .keyboard(timeCtPasKeyboard)
@@ -366,7 +324,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                 }
                                 break;
                             }
-                        // ПАССАЖИР - ВЫБОР ВОДИТЕЛЯ
+                            // ПАССАЖИР - ВЫБОР ВОДИТЕЛЯ
                         case Context.PAS_CHOICE_DRIVER:
                             if (message.getText().toLowerCase().equals("отправить запрос")) {
                                 resSet = statmt.executeQuery("SELECT userId FROM route WHERE id = " +
@@ -379,8 +337,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                         .message(PAS_DRIVER_SEND_QUERY_MESSAGE)
                                         .keyboard(choicePasKeyboard)
                                         .randomId(0).peerId(message.getFromId()).execute();
-                            }
-                            else {
+                            } else {
                                 resSet = statmt.executeQuery("SELECT * FROM passengerQuery WHERE userId = " + message.getFromId() + ";");
                                 resSet.next();
                                 PassengerQuery pq = new PassengerQuery(resSet);
@@ -451,14 +408,13 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                         Route r = new Route(resSet);
                                         messageText.append(i).append(") ").append(r.toString()).append("\n");
                                     }
-                                    if(i != 0) {
+                                    if (i != 0) {
                                         setContext(message.getFromId(), Context.DR_ROUTE_CHANGE);
                                         getClient().messages().send(groupActor)
                                                 .message(messageText.toString() + DR_ROUTE_CHANGE_MESSAGE)
                                                 .keyboard(choiceDriverQueryKeyboard)
                                                 .randomId(0).peerId(message.getFromId()).execute();
-                                    }
-                                    else {
+                                    } else {
                                         getClient().messages().send(groupActor)
                                                 .message(DR_ROUTE_CHANGE_NOT_ROUTES_MESSAGE)
                                                 .keyboard(driverKeyboard)
@@ -475,8 +431,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                                 .message(DAY_MESSAGE)
                                                 .keyboard(dayKeyboard)
                                                 .randomId(0).peerId(message.getFromId()).execute();
-                                    }
-                                    else {
+                                    } else {
                                         getClient().messages().send(groupActor)
                                                 .message(DR_ROUTE_NEW_EXCEEDED_MESSAGE)
                                                 .keyboard(driverKeyboard)
@@ -490,18 +445,17 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                             .randomId(0).peerId(message.getFromId()).execute();
                             }
                             break;
-                            // ВОДИТЕЛЬ - СТРАНИЧКА
+                        // ВОДИТЕЛЬ - СТРАНИЧКА
                         case Context.DR_PAGE:
                             if (message.getText().toLowerCase().equals("очистить")) {
-                                statmt.executeUpdate("UPDATE driverPage SET nickname = '', indexCar = '', modelCar = '', " +
-                                        "description = '' WHERE userId = " + message.getFromId() + ";");
+                                statmt.executeUpdate("UPDATE driverPage SET nickname = '-', indexCar = '-', modelCar = '-', " +
+                                        "description = '-' WHERE userId = " + message.getFromId() + ";");
                                 setContext(message.getFromId(), Context.START);
                                 getClient().messages().send(groupActor)
                                         .message(DR_PAGE_CLEAR_MESSAGE + "\n" + START_MESSAGE)
                                         .keyboard(startKeyboard)
                                         .randomId(0).peerId(message.getFromId()).execute();
-                            }
-                            else {
+                            } else {
                                 getClient().messages().send(groupActor)
                                         .message(DR_PAGE_CHANGE_MESSAGE)
                                         .randomId(0).peerId(message.getFromId()).execute();
@@ -602,8 +556,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                                 .message(PAS_CHOICE_TIME_UN_MESSAGE)
                                                 .keyboard(timeUnDrKeyboard)
                                                 .randomId(0).peerId(message.getFromId()).execute();
-                                    }
-                                    else {
+                                    } else {
                                         updateDayKeyboard();
                                         getClient().messages().send(groupActor)
                                                 .message(WARNING_MESSAGE + "\n" + DAY_MESSAGE)
@@ -626,8 +579,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                         .message(DR_ROUTE_NEW_COUNT_UN_MESSAGE)
                                         .keyboard(countKeyboard)
                                         .randomId(0).peerId(message.getFromId()).execute();
-                            }
-                            else if (message.getText().toLowerCase().equals("нет")) {
+                            } else if (message.getText().toLowerCase().equals("нет")) {
                                 statmt.executeUpdate("UPDATE driverQuery SET timeUn = '" + message.getText() + "', " +
                                         "countUn = 0 WHERE userId = '" + message.getFromId() + "';");
                                 setContext(message.getFromId(), Context.DR_ROUTE_NEW_TIME_CT);
@@ -635,8 +587,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                         .message(PAS_CHOICE_TIME_CT_MESSAGE)
                                         .keyboard(timeCtDrKeyboard)
                                         .randomId(0).peerId(message.getFromId()).execute();
-                            }
-                            else {
+                            } else {
                                 getClient().messages().send(groupActor)
                                         .message(WARNING_MESSAGE + "\n" + PAS_CHOICE_TIME_UN_MESSAGE)
                                         .keyboard(timeCtPasKeyboard)
@@ -652,8 +603,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                         .message(PAS_CHOICE_TIME_CT_MESSAGE)
                                         .keyboard(timeCtDrKeyboard)
                                         .randomId(0).peerId(message.getFromId()).execute();
-                            }
-                            else {
+                            } else {
                                 getClient().messages().send(groupActor)
                                         .message(WARNING_MESSAGE + "\n" + DR_ROUTE_NEW_COUNT_UN_MESSAGE)
                                         .keyboard(countKeyboard)
@@ -674,8 +624,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                         .message(DR_ROUTE_NEW_COUNT_CT_MESSAGE)
                                         .keyboard(countKeyboard)
                                         .randomId(0).peerId(message.getFromId()).execute();
-                            }
-                            else if (message.getText().toLowerCase().equals("нет")) {
+                            } else if (message.getText().toLowerCase().equals("нет")) {
                                 statmt.executeUpdate("UPDATE driverQuery SET timeCt = '" + message.getText() + "', " +
                                         "countCt = 0 WHERE userId = '" + message.getFromId() + "';");
                                 setContext(message.getFromId(), Context.START);
@@ -688,8 +637,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                             .message(DR_ROUTE_NEW_ERROR_MESSAGE + "\n" + START_MESSAGE)
                                             .keyboard(startKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
-                                }
-                                else {
+                                } else {
                                     DriverQuery dq = new DriverQuery(resSet);
                                     statmt.execute("INSERT INTO route (userId, day, timeUn, countUn, timeCt, countCt) " +
                                             "VALUES ('" + message.getFromId() + "', '" + dq.getDay() + "', '" + dq.getTimeUn() + "', " +
@@ -700,8 +648,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                             .keyboard(startKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
                                 }
-                            }
-                            else {
+                            } else {
                                 getClient().messages().send(groupActor)
                                         .message(WARNING_MESSAGE + "\n" + PAS_CHOICE_TIME_CT_MESSAGE)
                                         .keyboard(timeCtPasKeyboard)
@@ -723,8 +670,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                         .message(DR_ROUTE_NEW_SUCCESS_MESSAGE + "\n" + START_MESSAGE)
                                         .keyboard(startKeyboard)
                                         .randomId(0).peerId(message.getFromId()).execute();
-                            }
-                            else {
+                            } else {
                                 getClient().messages().send(groupActor)
                                         .message(WARNING_MESSAGE + "\n" + DR_ROUTE_NEW_COUNT_CT_MESSAGE)
                                         .keyboard(countKeyboard)
@@ -755,8 +701,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                             .keyboard(changeQueryDriverKeyboard)
                                             .randomId(0).peerId(message.getFromId()).execute();
                                 }
-                            }
-                            else {
+                            } else {
                                 getClient().messages().send(groupActor)
                                         .message(WARNING_MESSAGE + "\n" + DR_ROUTE_CHANGE_MESSAGE)
                                         .keyboard(choiceDriverQueryKeyboard)
@@ -848,8 +793,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                                 .message(DR_ROUTE_CHANGE_SUCCESS_MESSAGE)
                                                 .keyboard(changeQueryDriverKeyboard)
                                                 .randomId(0).peerId(message.getFromId()).execute();
-                                    }
-                                    else {
+                                    } else {
                                         updateDayKeyboard();
                                         getClient().messages().send(groupActor)
                                                 .message(WARNING_MESSAGE + "\n" + DAY_MESSAGE)
@@ -893,8 +837,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                         .message(DR_ROUTE_CHANGE_SUCCESS_MESSAGE)
                                         .keyboard(changeQueryDriverKeyboard)
                                         .randomId(0).peerId(message.getFromId()).execute();
-                            }
-                            else {
+                            } else {
                                 getClient().messages().send(groupActor)
                                         .message(WARNING_MESSAGE + "\n" + DR_ROUTE_NEW_COUNT_UN_MESSAGE)
                                         .keyboard(countKeyboard)
@@ -936,8 +879,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                         .message(DR_ROUTE_CHANGE_SUCCESS_MESSAGE)
                                         .keyboard(changeQueryDriverKeyboard)
                                         .randomId(0).peerId(message.getFromId()).execute();
-                            }
-                            else {
+                            } else {
                                 getClient().messages().send(groupActor)
                                         .message(WARNING_MESSAGE + "\n" + DR_ROUTE_NEW_COUNT_CT_MESSAGE)
                                         .keyboard(countKeyboard)
@@ -951,8 +893,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                                     .keyboard(startKeyboard)
                                     .randomId(0).peerId(message.getFromId()).execute();
                     }
-                }
-                else {
+                } else {
                     setContext(message.getFromId(), Context.START);
                     getClient().messages().send(groupActor)
                             .message(OLD_CONTEXT_MESSAGE + "\n" + START_MESSAGE)
@@ -975,10 +916,16 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                         .keyboard(startKeyboard)
                         .randomId(0).peerId(message.getFromId()).execute();
             }
+            sem.release();
             /* ***************************************
              *  ПРОИЗОШЛА ОШИБКА В РАБОТЕ БОТА!!!
              *************************************** */
-        } catch (Exception e) {
+        }
+        catch (InterruptedException e) {
+            System.out.println(new SimpleDateFormat("dd.MM.yyyy - HH:mm:ss | ").format(new Date()) + "Главная ветка бесконечно долго ждёт семафор\n" + e.getMessage());
+        }
+        catch (Exception e) {
+            sem.release();
             System.out.println(e.getMessage());
             try {
                 setContext(message.getFromId(), Context.START);
@@ -987,9 +934,9 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
                         .keyboard(startKeyboard)
                         .randomId(0).peerId(message.getFromId()).execute();
             } catch (ApiException ex) {
-                System.out.println(e.getMessage());
+                System.out.println(new SimpleDateFormat("dd.MM.yyyy - HH:mm:ss | ").format(new Date()) + e.getMessage());
             } catch (ClientException ex) {
-                System.out.println(e.getMessage());
+                System.out.println(new SimpleDateFormat("dd.MM.yyyy - HH:mm:ss | ").format(new Date()) + e.getMessage());
             } catch (SQLException ex) {
                 ex.printStackTrace();
             }
