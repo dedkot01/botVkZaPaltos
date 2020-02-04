@@ -22,7 +22,6 @@ public class Application {
 
     public static Connection connDb;
     public static Statement statmt;
-    public static ResultSet resSet;
     public static Semaphore sem;
 
     public static void main(String[] args) throws IOException {
@@ -31,29 +30,34 @@ public class Application {
         GroupActor groupActor = createGroupActor(properties);
         setDayPatternsDate();
         connectDb();
-
         sem = new Semaphore(1);
+
+        HttpTransportClient httpClient = HttpTransportClient.getInstance();
 
         while(true) {
             try {
-                HttpTransportClient httpClient = HttpTransportClient.getInstance();
                 VkApiClient vk = new VkApiClient(httpClient);
 
-                UpdateDbThread updateDbThread = new UpdateDbThread(vk, groupActor, statmt, sem);
-                updateDbThread.start();
+                UpdateDbThread updateDbThread = UpdateDbThread.getInstance(vk, groupActor, statmt, sem);
+                updateDbThread.setSemaphore(sem);
+                updateDbThread.setVkClient(vk);
+                if (!updateDbThread.isAlive())
+                    updateDbThread.start();
+                System.out.println("Initialization/check UpdateThread complete!");
 
-                CallbackApiLongPollHandler handler = new CallbackApiLongPollHandler(vk, groupActor);
-                System.out.println("Initialization complete! Run.\n");
+                CallbackApiLongPollHandler handler = new CallbackApiLongPollHandler(vk, groupActor, statmt, sem);
+                System.out.println("All Initialization complete! Run.");
                 handler.run();
             }
             catch (ClientException | ApiException e) {
                 System.out.println(new SimpleDateFormat("d.M.yyyy - H:m:s | ").format(new Date()) + "ANOMALY\n" + e.getMessage());
+                System.out.println("Restart after 1 minute");
             }
             try {
                 sleep(60000);
             }
             catch (InterruptedException e) {
-                System.out.println(new SimpleDateFormat("dd.MM.yyyy - HH:mm:ss | ").format(new Date()) + "I can not fall asleep\n");
+                System.out.println(new SimpleDateFormat("dd.MM.yyyy - HH:mm:ss | ").format(new Date()) + "I can not fall asleep");
             }
         }
     }
@@ -166,6 +170,7 @@ public class Application {
                 else
                     System.out.println(e.getMessage());
             }
+            System.out.println("Initialization database complete!");
         }
         catch (Exception e) {
             System.out.println(e.getMessage());

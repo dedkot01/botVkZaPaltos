@@ -12,6 +12,8 @@ import java.util.concurrent.Semaphore;
 
 public class UpdateDbThread extends Thread {
 
+    private static UpdateDbThread instance;
+
     private static final String PAS_NOTIFICATION_MESSAGE = "По вашей подписке появились новые записи";
 
     private VkApiClient vk;
@@ -24,6 +26,7 @@ public class UpdateDbThread extends Thread {
         groupActor = actor;
         statmt = stat;
         sem = semaphore;
+        setName("UpdateThread");
     }
 
     public void run() {
@@ -69,5 +72,19 @@ public class UpdateDbThread extends Thread {
                 System.out.println(new SimpleDateFormat("dd.MM.yyyy - HH:mm:ss | ").format(new Date()) + "UpdateThread can not fall asleep\n");
             }
         }
+    }
+
+    public void setVkClient(VkApiClient client) {
+        vk = client;
+    }
+
+    public void setSemaphore(Semaphore semaphore) {
+        sem = semaphore;
+    }
+
+    public static UpdateDbThread getInstance(VkApiClient client, GroupActor actor, Statement stat, Semaphore semaphore) {
+        if (instance == null)
+            instance = new UpdateDbThread(client, actor, stat, semaphore);
+        return instance;
     }
 }

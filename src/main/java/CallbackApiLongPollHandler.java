@@ -55,6 +55,9 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
     private static final String DR_ROUTE_NEW_ERROR_MESSAGE = "Маршрут должен иметь хотя бы один пункт назначения!";
 
     private GroupActor groupActor;
+    private ResultSet resSet;
+    private Statement statmt;
+    private Semaphore sem;
 
     // Клавиатуры
     private Keyboard startKeyboard;
@@ -72,9 +75,11 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
     private Keyboard countKeyboard;
     private Keyboard subscribeKeyboard;
 
-    public CallbackApiLongPollHandler(VkApiClient client, GroupActor actor) {
+    public CallbackApiLongPollHandler(VkApiClient client, GroupActor actor, Statement statement, Semaphore semaphore) {
         super(client, actor);
         groupActor = actor;
+        statmt = statement;
+        sem = semaphore;
 
         buildStartKeyboard();
         buildDriverKeyboard();
@@ -90,7 +95,6 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
         buildCountKeyboard();
         buildChangeDriverKeyboard();
         buildSubscribeKeyboard();
-
     }
 
     public void messageNew(Integer groupId, Message message) {
