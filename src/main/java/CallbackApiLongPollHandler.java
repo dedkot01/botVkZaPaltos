@@ -54,11 +54,6 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
     private static final String DR_ROUTE_NEW_SUCCESS_MESSAGE = "Маршрут создан";
     private static final String DR_ROUTE_NEW_ERROR_MESSAGE = "Маршрут должен иметь хотя бы один пункт назначения!";
 
-    public static Connection connDb;
-    public static Statement statmt;
-    public static ResultSet resSet;
-    public static Semaphore sem;
-
     private GroupActor groupActor;
 
     // Клавиатуры
@@ -77,14 +72,9 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
     private Keyboard countKeyboard;
     private Keyboard subscribeKeyboard;
 
-    public CallbackApiLongPollHandler(VkApiClient client, GroupActor actor, int indexUpdTh) {
+    public CallbackApiLongPollHandler(VkApiClient client, GroupActor actor) {
         super(client, actor);
         groupActor = actor;
-
-        Day.addKnownPatternsDate(new SimpleDateFormat("d MMM yyyy"));
-        Day.addKnownPatternsDate(new SimpleDateFormat("d MM yyyy"));
-        Day.addKnownPatternsDate(new SimpleDateFormat("d M yyyy"));
-        Day.addKnownPatternsDate(new SimpleDateFormat("d.M yyyy"));
 
         buildStartKeyboard();
         buildDriverKeyboard();
@@ -100,95 +90,7 @@ public class CallbackApiLongPollHandler extends CallbackApiLongPoll {
         buildCountKeyboard();
         buildChangeDriverKeyboard();
         buildSubscribeKeyboard();
-        try {
-            connDb = null;
-            Class.forName("org.sqlite.JDBC");
-            connDb = DriverManager.getConnection("jdbc:sqlite:database.db");
-            statmt = connDb.createStatement();
-            try {
-                statmt.executeUpdate("CREATE TABLE context (userId INTEGER PRIMARY KEY, " +
-                        "contextId INTEGER, " +
-                        "date TEXT);");
-                System.out.println("Table context create.");
-            }
-            catch (SQLException e) {
-                if (e.getErrorCode() == 1)
-                    System.out.println("Table context read.");
-                else
-                    System.out.println(e.getMessage());
-            }
-            try {
-                statmt.executeUpdate("CREATE TABLE passengerQuery (userId INTEGER PRIMARY KEY, " +
-                        "day TEXT, " +
-                        "target TEXT, " +
-                        "time TEXT, " +
-                        "cursor INTEGER, " +
-                        "subscribe INTEGER);");
-                System.out.println("Table passengerQuery create.");
-            }
-            catch (SQLException e) {
-                if (e.getErrorCode() == 1)
-                    System.out.println("Table passengerQuery read.");
-                else
-                    System.out.println(e.getMessage());
-            }
-            try {
-                statmt.executeUpdate("CREATE TABLE driverQuery (userId INTEGER PRIMARY KEY, " +
-                        "day TEXT, " +
-                        "timeUn TEXT, " +
-                        "countUn INTEGER, " +
-                        "timeCt TEXT, " +
-                        "countCt INTEGER, " +
-                        "cursor INTEGER);");
-                System.out.println("Table driverQuery create.");
-            }
-            catch (SQLException e) {
-                if (e.getErrorCode() == 1)
-                    System.out.println("Table driverQuery read.");
-                else
-                    System.out.println(e.getMessage());
-            }
-            try {
-                statmt.executeUpdate("CREATE TABLE driverPage (userId INTEGER PRIMARY KEY, " +
-                        "nickname TEXT, " +
-                        "indexCar TEXT, " +
-                        "modelCar TEXT, " +
-                        "description TEXT);");
-                System.out.println("Table driverPage create.");
-            }
-            catch (SQLException e) {
-                if (e.getErrorCode() == 1)
-                    System.out.println("Table driverPage read.");
-                else
-                    System.out.println(e.getMessage());
-            }
-            try {
-                statmt.executeUpdate("CREATE TABLE route (id INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                        "userId INTEGER, " +
-                        "day TEXT, " +
-                        "timeUn TEXT, " +
-                        "countUn INTEGER, " +
-                        "timeCt TEXT, " +
-                        "countCt INTEGER);");
-                System.out.println("Table route create.");
-            }
-            catch (SQLException e) {
-                if (e.getErrorCode() == 1)
-                    System.out.println("Table route read.");
-                else
-                    System.out.println(e.getMessage());
-            }
 
-            sem = new Semaphore(1);
-            UpdateDbThread updateDbThread = new UpdateDbThread(getClient(), actor, statmt, sem);
-            updateDbThread.setName("UpdateThread" + String.valueOf(indexUpdTh));
-            updateDbThread.start();
-
-            System.out.println("Initialization complete! Run.\n");
-        }
-        catch (Exception e) {
-            System.out.println(e.getMessage());
-        }
     }
 
     public void messageNew(Integer groupId, Message message) {
