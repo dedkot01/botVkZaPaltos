@@ -62,14 +62,14 @@ public class UpdateDbThread extends Thread {
                     }
                 }
                 catch (Exception e) {
-                    System.out.println(new SimpleDateFormat("dd.MM.yyyy - HH:mm:ss | ").format(new Date()) + "Проблема в нитке обновления\n" + e.getMessage());
+                    System.out.println(new SimpleDateFormat("dd.MM.yyyy - HH:mm:ss | ").format(new Date()) + "Проблема в нитке обновления" + e.getMessage());
                 }
                 sem.release();
-                System.out.println(new SimpleDateFormat("dd.MM.yyyy - HH:mm:ss | ").format(new Date()) + "UpdateDb success\n");
+                System.out.println(new SimpleDateFormat("dd.MM.yyyy - HH:mm:ss | ").format(new Date()) + "UpdateDb success");
                 sleep(3600000);
             }
             catch (InterruptedException e) {
-                System.out.println(new SimpleDateFormat("dd.MM.yyyy - HH:mm:ss | ").format(new Date()) + "UpdateThread can not fall asleep\n");
+                System.out.println(new SimpleDateFormat("dd.MM.yyyy - HH:mm:ss | ").format(new Date()) + "UpdateThread can not fall asleep");
             }
         }
     }

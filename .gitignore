@@ -8,3 +8,4 @@ gradlew
 gradlew.bat
 *.db
 config.properties
+Crypt.java

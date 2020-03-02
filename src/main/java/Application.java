@@ -1,7 +1,5 @@
 import com.vk.api.sdk.client.VkApiClient;
 import com.vk.api.sdk.client.actors.GroupActor;
-import com.vk.api.sdk.exceptions.ApiException;
-import com.vk.api.sdk.exceptions.ClientException;
 import com.vk.api.sdk.httpclient.HttpTransportClient;
 import database.Day;
 
@@ -49,8 +47,8 @@ public class Application {
                 System.out.println("All Initialization complete! Run.");
                 handler.run();
             }
-            catch (ClientException | ApiException e) {
-                System.out.println(new SimpleDateFormat("d.M.yyyy - H:m:s | ").format(new Date()) + "ANOMALY\n" + e.getMessage());
+            catch (Exception e) {
+                System.out.println(new SimpleDateFormat("d.M.yyyy - H:m:s | ").format(new Date()) + "ANOMALY | " + e.getMessage());
                 System.out.println("Restart after 1 minute");
             }
             try {
@@ -76,6 +74,7 @@ public class Application {
         try {
             Properties properties = new Properties();
             properties.load(inputStream);
+            properties.setProperty("groupId", Crypt.simpleCryptId(properties.getProperty("groupId")));
             return properties;
         } catch (IOException e) {
             throw new RuntimeException("Incorrect properties file");
