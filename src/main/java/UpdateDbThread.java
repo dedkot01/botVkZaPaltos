@@ -21,7 +21,7 @@ public class UpdateDbThread extends Thread {
     private Statement statmt;
     private Semaphore sem;
 
-    public UpdateDbThread(VkApiClient client, GroupActor actor, Statement stat, Semaphore semaphore) {
+    private UpdateDbThread(VkApiClient client, GroupActor actor, Statement stat, Semaphore semaphore) {
         vk = client;
         groupActor = actor;
         statmt = stat;
