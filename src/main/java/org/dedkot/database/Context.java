@@ -1,4 +1,4 @@
-package database;
+package org.dedkot.database;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;

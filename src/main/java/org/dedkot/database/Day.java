@@ -1,4 +1,4 @@
-package database;
+package org.dedkot.database;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
