@@ -1,7 +1,9 @@
+package org.dedkot;
+
 import com.vk.api.sdk.client.VkApiClient;
 import com.vk.api.sdk.client.actors.GroupActor;
-import database.Day;
-import database.PassengerQuery;
+import org.dedkot.database.Day;
+import org.dedkot.database.PassengerQuery;
 
 import java.sql.ResultSet;
 import java.sql.Statement;

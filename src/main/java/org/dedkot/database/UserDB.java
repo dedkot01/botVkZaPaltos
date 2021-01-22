@@ -1,4 +1,4 @@
-package database;
+package org.dedkot.database;
 
 public abstract class UserDB {
     private Integer userId;
