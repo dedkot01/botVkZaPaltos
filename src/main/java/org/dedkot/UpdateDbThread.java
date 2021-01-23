@@ -89,4 +89,5 @@ public class UpdateDbThread extends Thread {
             instance = new UpdateDbThread(client, actor, stat, semaphore);
         return instance;
     }
+
 }

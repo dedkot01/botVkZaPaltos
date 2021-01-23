@@ -1,9 +1,13 @@
 package org.dedkot.database;
 
+import lombok.Getter;
+
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+@Getter
 public class PassengerQuery extends UserDB {
+
     private String day;
     private String target;
     private String time;
@@ -17,23 +21,8 @@ public class PassengerQuery extends UserDB {
         cursor = resSet.getInt("cursor");
     }
 
-    public String getDay() {
-        return day;
-    }
-
-    public String getTarget() {
-        return target;
-    }
-
-    public String getTime() {
-        return time;
-    }
-
-    public Integer getCursor() {
-        return cursor;
-    }
-
     public String toString() {
         return ("@id" + getUserId() + " " + day + " " + target + " " + time);
     }
+
 }

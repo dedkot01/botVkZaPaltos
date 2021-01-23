@@ -1,9 +1,13 @@
 package org.dedkot.database;
 
+import lombok.Getter;
+
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+@Getter
 public class DriverPage extends UserDB {
+
     private String nickname;
     private String indexCar;
     private String modelCar;
@@ -15,22 +19,6 @@ public class DriverPage extends UserDB {
         indexCar = rs.getString("indexCar");
         modelCar = rs.getString("modelCar");
         description = rs.getString("description");
-    }
-
-    public String getNickname() {
-        return nickname;
-    }
-
-    public String getIndexCar() {
-        return indexCar;
-    }
-
-    public String getModelCar() {
-        return modelCar;
-    }
-
-    public String getDescription() {
-        return description;
     }
 
     public String toString() {
@@ -56,4 +44,5 @@ public class DriverPage extends UserDB {
 
         return strBuild.toString();
     }
+
 }

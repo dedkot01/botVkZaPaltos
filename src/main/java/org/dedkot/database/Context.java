@@ -1,8 +1,11 @@
 package org.dedkot.database;
 
+import lombok.Getter;
+
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+@Getter
 public class Context extends UserDB {
 
     public static final int START = 0;
@@ -44,11 +47,4 @@ public class Context extends UserDB {
         date = rs.getString("date");
     }
 
-    public Integer getId() {
-        return id;
-    }
-
-    public String getDate() {
-        return date;
-    }
 }

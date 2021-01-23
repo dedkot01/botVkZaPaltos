@@ -50,4 +50,5 @@ public class Day {
             return new SimpleDateFormat("d MMM").format(gc.getTime());
         }
     }
+
 }

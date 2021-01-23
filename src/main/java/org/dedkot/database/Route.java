@@ -1,11 +1,14 @@
 package org.dedkot.database;
 
+import lombok.Getter;
+
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+@Getter
 public class Route extends UserDB {
 
     private Integer id;
@@ -23,30 +26,6 @@ public class Route extends UserDB {
         countUn = rs.getInt("countUn");
         timeCt = rs.getString("timeCt");
         countCt = rs.getInt("countCt");
-    }
-
-    public Integer getId() {
-        return id;
-    }
-
-    public String getDay() {
-        return day;
-    }
-
-    public String getTimeUn() {
-        return timeUn;
-    }
-
-    public Integer getCountUn() {
-        return countUn;
-    }
-
-    public String getTimeCt() {
-        return timeCt;
-    }
-
-    public Integer getCountCt() {
-        return countCt;
     }
 
     public String getRouteText() throws ParseException {
@@ -121,4 +100,5 @@ public class Route extends UserDB {
         }
         return strBuild.toString();
     }
+
 }
