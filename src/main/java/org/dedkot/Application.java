@@ -1,7 +1,9 @@
+package org.dedkot;
+
 import com.vk.api.sdk.client.VkApiClient;
 import com.vk.api.sdk.client.actors.GroupActor;
 import com.vk.api.sdk.httpclient.HttpTransportClient;
-import database.Day;
+import org.dedkot.database.Day;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -94,7 +96,7 @@ public class Application {
         try {
             connDb = null;
             Class.forName("org.sqlite.JDBC");
-            connDb = DriverManager.getConnection("jdbc:sqlite:database.db");
+            connDb = DriverManager.getConnection("jdbc:sqlite:org.dedkot.database.db");
             statmt = connDb.createStatement();
             try {
                 statmt.executeUpdate("CREATE TABLE context (userId INTEGER PRIMARY KEY, " +
@@ -169,7 +171,7 @@ public class Application {
                 else
                     System.out.println(e.getMessage());
             }
-            System.out.println("Initialization database complete!");
+            System.out.println("Initialization org.dedkot.database complete!");
         }
         catch (Exception e) {
             System.out.println(e.getMessage());
